@@ -22,6 +22,19 @@ set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX ${CMAKE_CURRENT_SOURCE_DIR}/laf/cmake/cxx
 # Aseprite project
 project(aseprite C CXX)
 
+# ----------------------------------------------------------------------------
+# Aseprite Plus：品牌相关设置（与原版唯一的构建层面差异）
+#   ASEPRITE_PLUS_NAME        生成的 .app / 可执行文件的名字，允许包含空格
+#   ASEPRITE_PLUS_IDENTIFIER  macOS bundle 的反向 DNS 标识，避免和官方版冲突
+#   ASEPRITE_PLUS_ICON        macOS bundle 使用的图标文件（.icns）
+# ----------------------------------------------------------------------------
+set(ASEPRITE_PLUS_NAME "Aseprite Plus" CACHE STRING
+    "Name of the generated application bundle")
+set(ASEPRITE_PLUS_IDENTIFIER "studio.oldking.aseprite-plus" CACHE STRING
+    "Reverse-DNS identifier of the application bundle")
+set(ASEPRITE_PLUS_ICON "AsepritePlus.icns" CACHE STRING
+    "File name (inside Contents/Resources) of the application icon")
+
 # Check repository status
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/laf/CMakeLists.txt" OR
    NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/laf/clip/CMakeLists.txt")

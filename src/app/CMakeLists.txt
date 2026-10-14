@@ -704,6 +704,8 @@ target_sources(app-lib PRIVATE
   ui/timeline/doc_providers.cpp
   ui/timeline/timeline.cpp
   ui/toolbar.cpp
+  ui/oldking/custom_toolbar_buttons.cpp
+  ui/oldking/custom_toolbar_entries.cpp
   ui/user_data_view.cpp
   ui/window_with_hand.cpp
   ui/workspace.cpp
@@ -818,6 +820,13 @@ endif()
 
 # Directory where generated files by "gen" utility will stay.
 target_include_directories(app-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+# Focused OldKing regression runner; no additional test dependency is needed.
+option(OLDKING_BUILD_TOOLBAR_TESTS "Build OldKing toolbar regression runner" OFF)
+if(OLDKING_BUILD_TOOLBAR_TESTS)
+  add_executable(oldking_toolbar_tests ui/oldking/tests/custom_toolbar_tests.cpp)
+  target_link_libraries(oldking_toolbar_tests app-lib ${PLATFORM_LIBS})
+endif()
 
 if(REQUIRE_CURL)
   target_link_libraries(app-lib net-lib)

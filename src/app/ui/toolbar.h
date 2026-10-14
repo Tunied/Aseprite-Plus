@@ -11,6 +11,7 @@
 
 #include "app/tools/active_tool_observer.h"
 #include "app/ui/dockable.h"
+#include "app/ui/oldking/custom_toolbar_buttons.h"
 #include "app/ui/skin/skin_part.h"
 #include "gfx/point.h"
 #include "obs/connection.h"
@@ -71,6 +72,7 @@ protected:
   void onVisible(bool visible) override;
 
 private:
+  friend class oldking::ToolBarTestAccess;
   enum class GroupType { Regular, Overflow };
 
   bool isDockedAtLeftSide() const;
@@ -120,7 +122,10 @@ private:
   // Minimum height for all the top toolbar buttons to be visible.
   int m_minHeight;
 
+  oldking::CustomToolbarButtons m_customButtons;
+
   obs::connection m_closeConn;
+  obs::connection m_customCommandConn;
 };
 
 } // namespace app

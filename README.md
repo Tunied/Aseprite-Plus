@@ -1,3 +1,101 @@
+# Aseprite Plus
+
+> 🇨🇳 中文说明 / Chinese
+
+## 这是什么
+
+**Aseprite Plus** 是在原版 [Aseprite](https://github.com/aseprite/aseprite) 源码基础上做少量增强的个人自用版本，
+不是官方发行版，也与原作者 Igara Studio 无关。核心绘图引擎、格式支持、Lua 脚本 API 等全部沿用官方实现。
+
+本仓库长期保持与原版同步：**上游 `aseprite/aseprite` 的新提交会不定期合并进来**，
+增强功能在此基础上叠加，不会因为长期分叉而与官方版本脱节。
+
+上游关系：
+
+| remote | 仓库 | 说明 |
+|---|---|---|
+| `upstream` | https://github.com/aseprite/aseprite | 官方原版，作为同步来源 |
+| `origin` | https://github.com/Tunied/Aseprite-Plus | 初始 fork 来源 |
+
+## 相对原版的变化
+
+1. **macOS App 改名为 Aseprite Plus**
+   - App 名称：`Aseprite Plus`，bundle identifier：`studio.oldking.aseprite-plus`，
+     与官方版共存互不干扰（原版 `/Applications/Aseprite.app` 不会被覆盖）。
+   - 专属应用图标：`src/main/osx/AsepritePlus.png` → `AsepritePlus.icns`；
+     同时把上游一直缺失的文件类型图标补齐——`.ase`/`.aseprite` 显示 `Document.icns`、
+     `.aseprite-extension` 显示 `Extension.icns`（源图取自 `data/icons/`）。
+     换图标后重跑 `misc/make_app_icon.sh` 即可全部重新生成。
+   - 品牌相关的构建参数集中在根 `CMakeLists.txt`：`ASEPRITE_PLUS_NAME` /
+     `ASEPRITE_PLUS_IDENTIFIER` / `ASEPRITE_PLUS_ICON`，改一处即可整体改名。
+
+2. **原生自定义工具栏（OldKing Custom Toolbar）**
+   - 代码位于 `src/app/ui/oldking/`，在原生 `ToolBar` 上扩展出一组固定 Action Button，
+     点击时执行已安装 Lua 扩展里对应的 Command。
+   - 按钮顺序、命令 ID、图标的唯一注册入口是
+     `src/app/ui/oldking/custom_toolbar_entries.cpp`，新增静态按钮只需加一条 `registerButton`。
+   - 详细说明见 `AI/AI_Context/CustomToolbar.md`。
+   - 回归测试开关 `OLDKING_BUILD_TOOLBAR_TESTS`（默认 OFF），开启后会编译
+     `oldking_toolbar_tests`，不需要额外测试依赖。
+
+3. **界面文案微调**（合并自 `Tunied/Aseprite-Plus`）
+   - `Crop` / `Trim` 在英文界面中显示为更友好的名字（改动位于 `data/strings/en.ini`）。
+
+> 注意：程序内部的关于窗口、版本号等仍显示上游的 Aseprite 标识——这是有意保留的，
+> 以符合原版 [EULA](EULA.txt) 的要求，改动仅限包名、图标与上述功能增强。
+
+## 构建（macOS）
+
+双击与本仓库同级的 `一键编译Aseprite.command` 即可：
+
+1. 自动准备 cmake / ninja / Skia（`aseprite-m124`，匹配 v1.3.18.x）；
+2. 用 CMake + Ninja 编译本仓库源码；
+3. 把生成的 **Aseprite Plus.app** 安装到 `/Applications`，同名旧版本会被自动替换。
+
+产物：`/Applications/Aseprite Plus.app`（ad-hoc 签名，本机可直接运行）。
+
+手动编译也可以用同一套 CMake 参数：
+
+```sh
+cmake -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLAF_BACKEND=skia \
+  -DSKIA_DIR=$HOME/deps/skia \
+  -DSKIA_LIBRARY_DIR=$HOME/deps/skia/out/Release-arm64 \
+  -DSKIA_LIBRARY=$HOME/deps/skia/out/Release-arm64/libskia.a \
+  -DPNG_ARM_NEON:STRING=on \
+  -DASEPRITE_PLUS_NAME:STRING="Aseprite Plus"
+cmake --build build --target aseprite
+```
+
+Windows / Linux 不受 `ASEPRITE_PLUS_NAME` 影响，仍产出上游默认的 `aseprite` 可执行文件。
+
+## 上游同步流程
+
+双击与本仓库同级的 `一键同步上游Aseprite.command`：它会 fetch 上游、报告落后/领先情况，
+能安全快进时自动合并并更新子模块，最后询问是否立即重新编译；有冲突或工作区不干净时
+会停下来给出手动命令，绝不 force、不丢弃本地改动。
+
+手动同步也可以：
+
+```sh
+git fetch upstream
+git merge upstream/main        # 或按照自己的节奏 rebase
+git submodule update --init --recursive   # 上游常会更新 laf 等子模块
+```
+
+冲突通常集中在 `src/app/CMakeLists.txt` 和 `src/app/ui/toolbar.h/.cpp`，
+自定义工具栏的注册数据都在 `src/app/ui/oldking/` 自有目录里，不会和上游文件正面打架。
+
+上游要求的 Skia 版本声明在 `laf/misc/skia-tag.txt`，一键编译脚本会自动读取并跟随，
+同步后即使 Skia 大版本变化也不需要改脚本（新版会下载到独立的 `~/deps/skia-<tag>` 目录）。
+
+## 许可证
+
+与原版一致，见下方 License 章节。本仓库只做增强，不修改也不重新解释原版授权条款。
+
+---
+
 # Aseprite
 
 [![build](https://github.com/aseprite/aseprite/actions/workflows/build.yml/badge.svg)](https://github.com/aseprite/aseprite/actions/workflows/build.yml)

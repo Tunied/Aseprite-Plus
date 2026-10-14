@@ -110,10 +110,13 @@ ToolBar::ToolBar() : Widget(kGenericWidget), m_openedRecently(false), m_tipTimer
   }
 
   App::instance()->activeToolManager()->add_observer(this);
+  m_customCommandConn = UIContext::instance()->AfterCommandExecution.connect(
+    [this](CommandExecutionEvent&) { invalidate(); });
 }
 
 ToolBar::~ToolBar()
 {
+  m_customCommandConn.disconnect();
   App::instance()->activeToolManager()->remove_observer(this);
 }
 
@@ -128,6 +131,21 @@ bool ToolBar::onProcessMessage(Message* msg)
     case kMouseDownMessage: {
       auto mouseMsg = static_cast<const MouseMessage*>(msg);
       const Point mousePos = mouseMsg->positionForDisplay(display());
+      const int customButton = m_customButtons.hitTest(mousePos,
+                                                      getToolGroupBounds(PreviewVisibilityIndex),
+                                                      getToolIconSize(this),
+                                                      guiscale());
+      if (customButton >= 0) {
+        // Action buttons never select a drawing tool or start its popup/capture.
+        closePopupWindow();
+        closeTipWindow();
+        if (hasCapture())
+          releaseMouse();
+        if (mouseMsg->left())
+          m_customButtons.execute(customButton, UIContext::instance());
+        invalidate();
+        break;
+      }
       ToolBox* toolbox = App::instance()->toolBox();
       int hidden = getHiddenGroups();
       int groups = toolbox->getGroupsCount() - hidden;
@@ -230,6 +248,15 @@ bool ToolBar::onProcessMessage(Message* msg)
       }
 
       // hot button changed
+      const int customButton = m_customButtons.hitTest(mousePos,
+                                                      getToolGroupBounds(PreviewVisibilityIndex),
+                                                      getToolIconSize(this),
+                                                      guiscale());
+      if (customButton >= 0) {
+        new_hot_tool = nullptr;
+        new_hot_index = oldking::CustomToolbarButtons::toolbarIndex(customButton);
+      }
+
       if (new_hot_tool != m_hotTool || new_hot_index != m_hotIndex) {
         m_hotTool = new_hot_tool;
         m_hotIndex = new_hot_index;
@@ -312,6 +339,9 @@ void ToolBar::onSizeHint(SizeHintEvent& ev)
   Size iconsize = getToolIconSize(this);
   iconsize.w += border().width();
   iconsize.h += border().height();
+  // Even with all drawing groups in overflow, the fixed actions need room.
+  iconsize.h += m_customButtons.reservedHeight(getToolIconSize(this), guiscale()) +
+                2 * getToolIconSize(this).h + 4 * guiscale();
   ev.setSizeHint(iconsize);
 
 #if 0 // The Dock widget will ask for sizeHint() of this widget when
@@ -329,11 +359,13 @@ void ToolBar::onResize(ui::ResizeEvent& ev)
   Widget::onResize(ev);
 
   auto* toolbox = App::instance()->toolBox();
-  auto lastToolBounds = getToolGroupBounds(toolbox->getGroupsCount());
+  const Size iconSize = getToolIconSize(this);
+  auto lastToolBounds = getToolGroupBounds(toolbox->getGroupsCount() - 1);
   m_minHeight = lastToolBounds.y2() -
                 origin().y
-                // Preview and timeline buttons
-                + 2 * (getToolIconSize(this).h - 1) + 3 * guiscale();
+                // Bottom actions, preview/timeline, and the section gap.
+                + m_customButtons.reservedHeight(iconSize, guiscale()) +
+                2 * iconSize.h + 4 * guiscale();
 }
 
 void ToolBar::onPaint(ui::PaintEvent& ev)
@@ -377,6 +409,15 @@ void ToolBar::onPaint(ui::PaintEvent& ev)
     icon = theme->parts.listView()->bitmap(0);
 
     drawToolIcon(g, visibleGroupCount, nw, icon);
+  }
+
+  // Custom actions share the ToolBar's hot index and native skin.
+  for (int button = 0; button < m_customButtons.count(); ++button) {
+    Rect rc = getToolGroupBounds(oldking::CustomToolbarButtons::toolbarIndex(button));
+    rc.offset(-origin());
+    m_customButtons.paint(g, this, button, rc,
+                          m_hotIndex == oldking::CustomToolbarButtons::toolbarIndex(button),
+                          UIContext::instance());
   }
 
   // Draw button to show/hide preview
@@ -519,6 +560,12 @@ void ToolBar::closePopupWindow()
 
 Rect ToolBar::getToolGroupBounds(int group_index)
 {
+  if (m_customButtons.isCustomIndex(group_index)) {
+    return m_customButtons.buttonBounds(oldking::CustomToolbarButtons::buttonIndex(group_index),
+                                         getToolGroupBounds(PreviewVisibilityIndex),
+                                         getToolIconSize(this),
+                                         guiscale());
+  }
   ToolBox* toolbox = App::instance()->toolBox();
   int groups = toolbox->getGroupsCount();
   Size iconsize = getToolIconSize(this);
@@ -574,7 +621,10 @@ void ToolBar::openTipWindow(int group_index, Tool* tool)
   int groups = App::instance()->toolBox()->getGroupsCount() - hidden;
 
   std::string tooltip;
-  if (!tool && hidden > 0 && group_index >= groups) {
+  if (m_customButtons.isCustomIndex(group_index)) {
+    tooltip = m_customButtons.tooltip(oldking::CustomToolbarButtons::buttonIndex(group_index));
+  }
+  else if (!tool && hidden > 0 && group_index >= groups) {
     tooltip = Strings::general_show_more();
   }
   else if (tool && group_index >= 0) {
@@ -706,9 +756,10 @@ int ToolBar::getHiddenGroups() const
   auto* toolbox = App::instance()->toolBox();
   const int height = size().h;
   if (height < m_minHeight) {
-    int hidden = (m_minHeight - height) / (getToolIconSize(this).h - 1 * guiscale());
-    if (hidden >= 1)
-      return std::clamp(hidden + 1, 2, toolbox->getGroupsCount());
+    const int step = getToolIconSize(this).h - guiscale();
+    // Round up even a one-pixel shortage and leave room for the overflow button.
+    const int hidden = (m_minHeight - height + step - 1) / step;
+    return std::clamp(hidden + 1, 2, toolbox->getGroupsCount());
   }
   return 0;
 }

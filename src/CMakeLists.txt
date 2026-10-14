@@ -98,7 +98,9 @@ add_subdirectory(app)
 
 set(ORIGINAL_DATA_OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin/data)
 if(ENABLE_ASEPRITE_EXE AND APPLE)
-  set(DATA_OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin/Aseprite.app/Contents/Resources/data)
+  # Aseprite Plus：bundle 目录名由 ASEPRITE_PLUS_NAME 决定
+  set(ASEPRITE_APP_BUNDLE_DIR "${CMAKE_BINARY_DIR}/bin/${ASEPRITE_PLUS_NAME}.app")
+  set(DATA_OUTPUT_DIR ${ASEPRITE_APP_BUNDLE_DIR}/Contents/Resources/data)
 else()
   set(DATA_OUTPUT_DIR ${ORIGINAL_DATA_OUTPUT_DIR})
 endif()
@@ -187,6 +189,16 @@ if(ENABLE_ASEPRITE_EXE)
       main/win/resources_win32.rc
       main/win/settings.manifest)
   endif()
+  if(APPLE)
+    # Aseprite Plus：把应用/文件类型图标打包进 bundle 的 Contents/Resources
+    set(aseprite_app_icons
+      "${CMAKE_CURRENT_LIST_DIR}/main/osx/${ASEPRITE_PLUS_ICON}"
+      "${CMAKE_CURRENT_LIST_DIR}/main/osx/Document.icns"
+      "${CMAKE_CURRENT_LIST_DIR}/main/osx/Extension.icns")
+    list(APPEND main_resources ${aseprite_app_icons})
+    set_source_files_properties(${aseprite_app_icons} PROPERTIES
+      MACOSX_PACKAGE_LOCATION "Resources")
+  endif()
 
   set(BUNDLE_PARAM "")
   set(INSTALL_OPT RUNTIME)
@@ -206,14 +218,16 @@ if(ENABLE_ASEPRITE_EXE)
   set_target_properties(aseprite PROPERTIES LINK_FLAGS "${LAF_BACKEND_LINK_FLAGS}")
   if(APPLE)
     set_target_properties(aseprite PROPERTIES
+      # Aseprite Plus：bundle 目录与可执行文件都使用 ASEPRITE_PLUS_NAME
+      OUTPUT_NAME "${ASEPRITE_PLUS_NAME}"
       MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_LIST_DIR}/main/osx/Info.plist")
 
-    # As the output now is inside the Aseprite.app bundle, we generate
+    # As the output now is inside the <ASEPRITE_PLUS_NAME>.app bundle, we generate
     # a symlink to replace the old bin/aseprite binary and run the
     # binary inside the .app bundle.
     add_custom_command(
       TARGET aseprite POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E create_symlink "${CMAKE_BINARY_DIR}/bin/Aseprite.app/Contents/MacOS/aseprite" "${CMAKE_BINARY_DIR}/bin/aseprite")
+      COMMAND ${CMAKE_COMMAND} -E create_symlink "${ASEPRITE_APP_BUNDLE_DIR}/Contents/MacOS/${ASEPRITE_PLUS_NAME}" "${CMAKE_BINARY_DIR}/bin/aseprite")
 
     # Create a bin/data link to bin/Aseprite.app/Contents/Resources/data
     # so tests can load the data too (as tests aren't linked inside the
