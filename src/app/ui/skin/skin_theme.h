@@ -204,6 +204,8 @@ private:
 
   Fonts m_fonts;
   std::string m_path;
+  mutable os::SurfaceRef m_cloneStampIcon;
+  mutable os::SurfaceRef m_staticLayersIcon;
   os::SurfaceRef m_sheet;
   // Contains the sheet surface as is, without any scale.
   os::SurfaceRef m_unscaledSheet;

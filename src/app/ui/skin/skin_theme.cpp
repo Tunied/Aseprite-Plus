@@ -403,6 +403,8 @@ SkinTheme::~SkinTheme()
 
 void SkinTheme::onRegenerateTheme()
 {
+  m_cloneStampIcon.reset();
+  m_staticLayersIcon.reset();
   Preferences& pref = Preferences::instance();
   BackwardCompatibility backward;
 
@@ -1929,6 +1931,31 @@ SkinPartPtr SkinTheme::getToolPart(const char* toolId) const
 
 os::Surface* SkinTheme::getToolIcon(const char* toolId) const
 {
+  if (std::strcmp(toolId, "clone_stamp") == 0 || std::strcmp(toolId, "timeline") == 0) {
+    const bool stamp = std::strcmp(toolId, "clone_stamp") == 0;
+    auto& icon = stamp ? m_cloneStampIcon : m_staticLayersIcon;
+    const int scale = ui::guiscale();
+    if (!icon || icon->width() != 16 * scale) {
+      icon = os::System::instance()->makeRgbaSurface(16 * scale, 16 * scale);
+      icon->clear();
+      const char* rows[] = {
+        "................", "................", "......####......", ".....######.....",
+        ".....######.....", "......####......", ".......##.......", ".......##.......",
+        "....########....", "...##########...", "...##......##...", "...##########...",
+        "...##########...", "................", "................", "................" };
+      const char* layers[] = {
+        "................", "................", ".......##.......", ".....######.....",
+        "...##########...", ".##############.", "...##########...", ".....######.....",
+        "..#....##....#..", "..###......###..", "....########....", "......####......",
+        "..##........##..", "....########....", "......####......", "................" };
+      if (!stamp) for (int i = 0; i < 16; ++i) rows[i] = layers[i];
+      for (int y = 0; y < 16; ++y) for (int x = 0; x < 16; ++x)
+        if (rows[y][x] == '#')
+          for (int v = 0; v < scale; ++v) for (int u = 0; u < scale; ++u)
+            icon->putPixel(colors.text(), x * scale + u, y * scale + v);
+    }
+    return icon.get();
+  }
   SkinPartPtr part = getToolPart(toolId);
   if (part)
     return part->bitmap(0);

@@ -10,6 +10,7 @@
 #endif
 
 #include "app/context.h"
+#include "app/static_editing.h"
 
 #include "app/active_site_handler.h"
 #include "app/app.h"
@@ -149,6 +150,7 @@ void Context::notifyActiveSiteChanged()
 void Context::executeCommandFromMenuOrShortcut(Command* command, const Params& params)
 {
   ui::assert_ui_thread();
+  if (command && isAnimationCommand(command->id())) return;
 
   // With this we avoid executing a command when we are inside another
   // command (e.g. if we press Cmd-S quickly the program can enter two

@@ -23,6 +23,7 @@
 #include "render/extra_type.h"
 #include "render/onionskin_options.h"
 #include "render/projection.h"
+#include <functional>
 
 namespace doc {
 class Cel;
@@ -55,6 +56,7 @@ class Render {
 
 public:
   Render();
+  void setLayerFilter(std::function<bool(const Layer*)> filter) { m_layerFilter = std::move(filter); }
 
   void setRefLayersVisiblity(const bool visible);
   void setNonactiveLayersOpacity(const int opacity);
@@ -179,6 +181,7 @@ private:
 
   bool checkIfWeShouldUsePreview(const Cel* cel) const;
 
+  std::function<bool(const Layer*)> m_layerFilter;
   int m_flags;
   int m_nonactiveLayersOpacity;
   const Sprite* m_sprite;

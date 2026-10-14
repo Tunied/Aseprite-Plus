@@ -12,6 +12,8 @@
 #include "app/commands/command.h"
 #include "app/commands/params.h"
 #include "app/console.h"
+#include "app/context.h"
+#include "app/static_editing.h"
 #include "app/i18n/strings.h"
 
 namespace app {
@@ -37,6 +39,7 @@ void Command::loadParams(const Params& params)
 bool Command::isEnabled(Context* context)
 {
   try {
+    if (context->isUIAvailable() && isAnimationCommand(id())) return false;
     return onEnabled(context);
   }
   catch (...) {

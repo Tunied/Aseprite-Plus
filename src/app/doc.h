@@ -13,6 +13,7 @@
 #include "app/extra_cel.h"
 #include "app/file/format_options.h"
 #include "app/transformation.h"
+#include "app/tools/clone_stamp.h"
 #include "base/disable_copying.h"
 #include "base/rw_lock.h"
 #include "doc/blend_mode.h"
@@ -60,6 +61,8 @@ enum DuplicateType {
 // opened and being edited by the user (a sprite).
 class Doc : public doc::Document,
             public obs::observable<DocObserver> {
+  CloneStampState m_cloneStamp;
+
   enum Flags {
     kAssociatedToFile = 1, // This sprite is associated to a file in the file-system
     kMaskVisible = 2,      // The mask wasn't hidden by the user
@@ -73,6 +76,8 @@ public:
 
   Doc(Sprite* sprite);
   ~Doc();
+
+  CloneStampState& cloneStamp() { return m_cloneStamp; }
 
   Context* context() const { return m_ctx; }
   void setContext(Context* ctx);

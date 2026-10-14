@@ -10,6 +10,7 @@
 #endif
 
 #include "app/ui/keyboard_shortcuts.h"
+#include "app/static_editing.h"
 
 #include "app/app.h"
 #include "app/app_menus.h"
@@ -127,8 +128,15 @@ void KeyboardShortcuts::importFile(XMLElement* rootElement, KeySource source)
     const char* command_name = xmlKey->Attribute("command");
     const char* command_key = get_shortcut(xmlKey);
     bool removed = bool_attr(xmlKey, "removed", false);
+    if (command_name && std::string(command_name) == "ShowMenu") {
+      auto* menu = xmlKey->FirstChildElement("param");
+      if (menu && menu->Attribute("value") && std::string(menu->Attribute("value")) == "frame_menu") {
+        xmlKey = xmlKey->NextSiblingElement();
+        continue;
+      }
+    }
 
-    if (command_name) {
+    if (command_name && !isAnimationCommand(command_name)) {
       Command* command = Commands::instance()->byId(command_name);
       if (command) {
         // Read context
@@ -274,7 +282,7 @@ void KeyboardShortcuts::importFile(XMLElement* rootElement, KeySource source)
 
     if (action_id) {
       WheelAction action = base::convert_to<WheelAction, std::string>(action_id);
-      if (action != WheelAction::None) {
+      if (action != WheelAction::None && action != WheelAction::Frame) {
         KeyPtr key = this->wheelAction(action);
         if (key && action_key) {
           LOG(VERBOSE, "KEYS: Shortcut for wheel action %s: %s\n", action_id, action_key);
@@ -718,6 +726,7 @@ void KeyboardShortcuts::clearMouseWheelKeys()
 void KeyboardShortcuts::addMissingMouseWheelKeys()
 {
   for (int action = int(WheelAction::First); action <= int(WheelAction::Last); ++action) {
+    if (action == int(WheelAction::Frame)) continue;
     // Wheel actions
     auto it = std::find_if(m_keys.begin(), m_keys.end(), [action](const KeyPtr& key) -> bool {
       return key->type() == KeyType::WheelAction && key->wheelAction() == (WheelAction)action;
@@ -774,11 +783,13 @@ void KeyboardShortcuts::setDefaultMouseWheelKeys(const bool zoomWithWheel)
     key->add(Shortcut(kKeyCtrlModifier, kKeyNil, 0), KeySource::Original, *this);
     m_keys.push_back(key);
 
-    key = std::make_shared<Key>(WheelAction::Frame);
-    key->add(Shortcut((KeyModifiers)(kKeyCtrlModifier | kKeyShiftModifier), kKeyNil, 0),
-             KeySource::Original,
-             *this);
-    m_keys.push_back(key);
+    if (!kStaticEditing) {
+      key = std::make_shared<Key>(WheelAction::Frame);
+      key->add(Shortcut((KeyModifiers)(kKeyCtrlModifier | kKeyShiftModifier), kKeyNil, 0),
+               KeySource::Original,
+               *this);
+      m_keys.push_back(key);
+    }
   }
 }
 
@@ -798,6 +809,7 @@ void KeyboardShortcuts::addMissingKeysForCommands()
   commands->getAllIds(ids);
 
   for (const std::string& id : ids) {
+    if (isAnimationCommand(id)) continue;
     Command* command = commands->byId(id.c_str());
 
     // Don't add commands that need params (they will be added to

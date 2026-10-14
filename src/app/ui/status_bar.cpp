@@ -701,6 +701,8 @@ StatusBar::StatusBar(TooltipManager* tooltipManager)
     box1->addChild(m_frameLabel);
     box1->addChild(box4);
     box1->addChild(m_zoomEntry);
+    m_frameLabel->setVisible(false);
+    box4->setVisible(false);
 
     m_docControls->addChild(box1);
     m_commandsBox = box1;

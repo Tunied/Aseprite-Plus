@@ -105,6 +105,7 @@ void StandbyState::onActiveToolChange(Editor* editor, tools::Tool* tool)
 {
   // If the user change from a selection tool to a non-selection tool,
   // or viceversa, we've to show or hide the transformation handles.
+  if (editor->document() && (!tool || tool->getId() != "clone_stamp")) editor->document()->cloneStamp().pending = false;
   bool needDecorators = (tool && tool->getInk(0)->isSelection());
   if (m_transformSelectionHandlesAreVisible != needDecorators || !editor->layer() ||
       !editor->layer()->isReference()) {
@@ -127,6 +128,31 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
 
   // When an editor is clicked the current view is changed.
   context->setActiveView(editor->getDocView());
+
+  if (clickedInk && editor->getCurrentEditorTool()->getId() == "clone_stamp" && msg->left()) {
+    auto& stamp = document->cloneStamp();
+    const auto point = (editor->screenToEditor(msg->position()) - editor->mainTilePosition());
+    if (stamp.pending) {
+      if (!layer || !layer->isImage() || layer->isTilemap() || layer->isReference() ||
+          !editor->sprite()->bounds().contains(point)) {
+        StatusBar::instance()->showTip(2000, "Clone Stamp: sample inside an ordinary image layer");
+        return true;
+      }
+      stamp.sample(point, layer->id());
+      editor->invalidate();
+      return true;
+    }
+    if (!stamp.valid) {
+      stamp.pending = true;
+      StatusBar::instance()->showTip(2000, "Clone Stamp: press Y, then click to set the source");
+      return true;
+    }
+    if (!layer || !layer->isImage() || layer->isTilemap() || layer->isReference()) {
+      StatusBar::instance()->showTip(2000, "Clone Stamp requires an ordinary image destination layer");
+      return true;
+    }
+    // Ink starts the stroke after snapping/controller processing.
+  }
 
   // Move symmetry
   Decorator::Handles handles;
@@ -315,7 +341,8 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
 
     // Shift+click on Pencil tool starts a line onMouseDown() when the
     // preview (onKeyDown) is disabled.
-    if (!Preferences::instance().editor.straightLinePreview() &&
+    if (editor->getCurrentEditorTool()->getId() != "clone_stamp" &&
+        !Preferences::instance().editor.straightLinePreview() &&
         checkStartDrawingStraightLine(editor, msg, &pointer)) {
       // Send first mouse down to draw the straight line and start the
       // freehand mode.
@@ -466,7 +493,13 @@ bool StandbyState::onSetCursor(Editor* editor, const gfx::Point& mouseScreenPos)
 
 bool StandbyState::onKeyDown(Editor* editor, KeyMessage* msg)
 {
-  if (Preferences::instance().editor.straightLinePreview() &&
+  if (msg->scancode() == kKeyEsc && editor->document()->cloneStamp().pending) {
+    editor->document()->cloneStamp().pending = false;
+    editor->invalidate();
+    return true;
+  }
+  if (editor->getCurrentEditorTool()->getId() != "clone_stamp" &&
+      Preferences::instance().editor.straightLinePreview() &&
       checkStartDrawingStraightLine(editor, nullptr, nullptr))
     return false;
 

@@ -15,6 +15,9 @@
 #include "app/commands/commands.h"
 #include "app/commands/params.h"
 #include "app/context.h"
+#include "app/doc.h"
+#include "app/ui_context.h"
+#include "app/ui/editor/editor.h"
 #include "app/ui/input_chain.h"
 
 namespace app {
@@ -55,6 +58,14 @@ void CancelCommand::onLoadParams(const Params& params)
 
 void CancelCommand::onExecute(Context* context)
 {
+  if (auto* doc = context->activeDocument()) {
+    if (doc->cloneStamp().pending) {
+      doc->cloneStamp().pending = false;
+      if (context->isUIAvailable())
+        for (auto* editor : UIContext::instance()->getAllEditorsIncludingPreview(doc)) editor->invalidate();
+      return;
+    }
+  }
   switch (m_type) {
     case NoOp:
       // Do nothing.

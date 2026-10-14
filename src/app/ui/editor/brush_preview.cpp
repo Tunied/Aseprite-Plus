@@ -247,6 +247,7 @@ void BrushPreview::show(const gfx::Point& screenPos)
     m_type = CROSSHAIR;
   }
 
+  const bool isClone = m_editor->getCurrentEditorTool()->getId() == "clone_stamp";
   bool showPreview = false;
   bool showPreviewWithEdges = false;
   bool cancelEdges = false;
@@ -256,6 +257,7 @@ void BrushPreview::show(const gfx::Point& screenPos)
   if (!m_editor->docPref().show.brushPreview())
     brushPreview = app::gen::BrushPreview::NONE;
 
+  if (isClone) brushPreview = app::gen::BrushPreview::EDGES;
   switch (brushPreview) {
     case app::gen::BrushPreview::NONE:  m_type = CROSSHAIR; break;
     case app::gen::BrushPreview::EDGES: m_type = BRUSH_BOUNDARIES; break;

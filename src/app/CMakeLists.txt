@@ -490,6 +490,7 @@ target_sources(app-lib PRIVATE
   commands/cmd_switch_colors.cpp
   commands/cmd_symmetry_mode.cpp
   commands/cmd_tiled_mode.cpp
+  commands/cmd_clone_stamp_source.cpp
   commands/cmd_timeline.cpp
   commands/cmd_toggle_preview.cpp
   commands/cmd_toggle_tiles_mode.cpp
@@ -588,6 +589,7 @@ target_sources(app-lib PRIVATE
   task.cpp
   thumbnail_generator.cpp
   thumbnails.cpp
+  tools/clone_stamp.cpp
   tools/active_tool.cpp
   tools/ink_type.cpp
   tools/intertwine.cpp
@@ -820,6 +822,12 @@ endif()
 
 # Directory where generated files by "gen" utility will stay.
 target_include_directories(app-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+option(OLDKING_BUILD_CLONE_TESTS "Build native clone stamp integration tests" OFF)
+if(OLDKING_BUILD_CLONE_TESTS AND ENABLE_SCRIPTING)
+  add_executable(oldking_clone_tests tools/clone_stamp_tests.cpp)
+  target_link_libraries(oldking_clone_tests app-lib ${PLATFORM_LIBS})
+endif()
 
 # Focused OldKing regression runner; no additional test dependency is needed.
 option(OLDKING_BUILD_TOOLBAR_TESTS "Build OldKing toolbar regression runner" OFF)

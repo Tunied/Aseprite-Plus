@@ -10,6 +10,7 @@
 #endif
 
 #include "app/ui/editor/tool_loop_impl.h"
+#include "app/tools/clone_stamp.h"
 
 #include "app/app.h"
 #include "app/cmd/add_slice.h"
@@ -246,7 +247,8 @@ public:
       }
 
       // Use overlap trace policy for dynamic gradient
-      if (m_dynamics.isDynamic() && m_dynamics.gradient != tools::DynamicSensor::Static &&
+      if (m_tool->getId() != "clone_stamp" &&
+          m_dynamics.isDynamic() && m_dynamics.gradient != tools::DynamicSensor::Static &&
           m_controller->isFreehand() && !m_ink->isEraser()) {
         // Use overlap trace policy to accumulate changes of colors
         // between stroke points.
@@ -256,8 +258,10 @@ public:
       }
     }
 
+    if (m_tool->getId() == "clone_stamp") m_dynamics = tools::DynamicsOptions();
+
     // Symmetry mode
-    if (Preferences::instance().symmetryMode.enabled()) {
+    if (m_tool->getId() != "clone_stamp" && Preferences::instance().symmetryMode.enabled()) {
       if (m_docPref.symmetry.mode() != gen::SymmetryMode::NONE)
         m_symmetry.reset(new tools::Symmetry(m_docPref.symmetry.mode(),
                                              m_docPref.symmetry.xAxis(),
@@ -602,6 +606,9 @@ public:
                const bool saveLastPoint)
     : PaintToolLoopBase(editor, site, grid, context, params, saveLastPoint)
   {
+    // Capture before ExpandCelCanvas temporarily repositions the destination cel.
+    if (auto* clone = dynamic_cast<tools::CloneStampInk*>(m_ink.get()))
+      clone->setSnapshot(tools::cloneStampSnapshot(m_document, m_toolPref.cloneSample()));
     constructor_prologue();
 
     // 'isSelectionPreview = true' if the intention is to show a preview

@@ -975,6 +975,7 @@ void Render::renderPlan(RenderPlan& plan,
   for (const auto& item : plan.items()) {
     const Cel* cel = item.cel;
     const Layer* layer = item.layer;
+    if (m_layerFilter && !m_layerFilter(layer)) continue;
 
     ASSERT(layer->isVisible()); // Hidden layers shouldn't be in the plan
 

@@ -10,6 +10,7 @@
 #endif
 
 #include "app/ui/export_file_window.h"
+#include "app/static_editing.h"
 
 #include "app/doc.h"
 #include "app/file/file.h"
@@ -207,7 +208,7 @@ void ExportFileWindow::updateAniDir()
 void ExportFileWindow::updatePlaySubtags()
 {
   std::string framesValue = this->framesValue();
-  playSubtags()->setVisible(framesValue != kSelectedFrames &&
+  playSubtags()->setVisible(!kStaticEditing && framesValue != kSelectedFrames &&
                             // We hide the option if there is no tag
                             !m_doc->sprite()->tags().empty());
   layout();

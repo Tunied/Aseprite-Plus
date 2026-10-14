@@ -10,6 +10,7 @@
 #endif
 
 #include "app/app_menus.h"
+#include "app/static_editing.h"
 
 #include "app/app.h"
 #include "app/commands/command.h"
@@ -703,6 +704,12 @@ Menu* AppMenus::convertXmlelemToMenu(XMLElement* elem)
 
   XMLElement* child = elem->FirstChildElement();
   while (child) {
+    const char* cmd = child->Attribute("command");
+    const char* id = child->Attribute("id");
+    if ((cmd && isAnimationCommand(cmd)) || (id && std::strcmp(id, "frame_menu") == 0)) {
+      child = child->NextSiblingElement();
+      continue;
+    }
     Widget* menuitem = convertXmlelemToMenuitem(child, menu);
     if (menuitem)
       menu->addChild(menuitem);

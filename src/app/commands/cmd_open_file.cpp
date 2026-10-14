@@ -12,6 +12,7 @@
 #include "app/commands/cmd_open_file.h"
 
 #include "app/app.h"
+#include "app/static_editing.h"
 #include "app/commands/command.h"
 #include "app/commands/params.h"
 #include "app/console.h"
@@ -126,6 +127,10 @@ void OpenFileCommand::onExecute(Context* context)
     case gen::SequenceDecision::NO:  flags |= FILE_LOAD_SEQUENCE_NONE; break;
   }
 
+  if (kStaticEditing && context->isUIAvailable()) {
+    flags &= ~(FILE_LOAD_SEQUENCE_ASK | FILE_LOAD_SEQUENCE_ASK_CHECKBOX | FILE_LOAD_SEQUENCE_YES);
+    flags |= FILE_LOAD_SEQUENCE_NONE | FILE_LOAD_ONE_FRAME;
+  }
   if (m_oneFrame)
     flags |= FILE_LOAD_ONE_FRAME;
 

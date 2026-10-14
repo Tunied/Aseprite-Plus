@@ -38,6 +38,7 @@
       </key>
       <!-- Edit -->
       <key command="Undo" shortcut="Ctrl+Z" mac="Cmd+Z" />
+      <key command="CloneStampSource" shortcut="Y" context="Normal" />
       <key command="Redo" shortcut="Ctrl+Y" mac="Cmd+Y" />
       <key command="Redo" shortcut="Ctrl+R" mac="Cmd+R" />
       <key command="Redo" shortcut="Ctrl+Shift+Z" mac="Cmd+Shift+Z" />
@@ -1368,6 +1369,12 @@
             controller="freehand"
             pointshape="spray"
             tracepolicy="overlap" />
+    </group>
+
+    <group id="clone_stamp_tools">
+      <tool id="clone_stamp" text="@.clone_stamp" tooltip="@.clone_stamp_tooltip"
+            ink="clone_stamp" controller="freehand" pointshape="brush"
+            intertwine="as_lines" tracepolicy="accumulate" default_brush_size="8" />
     </group>
 
     <group id="eraser_tools">

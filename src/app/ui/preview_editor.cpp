@@ -196,6 +196,7 @@ PreviewEditorWindow::PreviewEditorWindow()
 
   addChild(m_centerButton);
   addChild(m_playButton);
+  m_playButton->setVisible(false);
 
   initTheme();
 }

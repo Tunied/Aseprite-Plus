@@ -111,11 +111,11 @@
             <label text="@.export_image_default_extension" for="export_image_default_extension" />
             <combobox id="export_image_default_extension" />
 
-            <label text="@.export_animation_default_extension" for="export_animation_default_extension" />
-            <combobox id="export_animation_default_extension" />
+            <label visible="false" text="@.export_animation_default_extension" for="export_animation_default_extension" />
+            <combobox visible="false" id="export_animation_default_extension" />
 
-            <label text="@.export_sprite_sheet_default_extension" for="export_sprite_sheet_default_extension" />
-            <combobox id="export_sprite_sheet_default_extension" />
+            <label visible="false" text="@.export_sprite_sheet_default_extension" for="export_sprite_sheet_default_extension" />
+            <combobox visible="false" id="export_sprite_sheet_default_extension" />
           </grid>
 
           <grid columns="2">
@@ -274,7 +274,7 @@
                  pref="selection.snap_to_grid"/>
           <check text="@.force_rotsprite" id="force_rotsprite"
                  pref="selection.force_rotsprite"/>
-          <check text="@.multicel_when_layers_or_frames" id="multicel_when_layers_or_frames"
+          <check text="@.multicel_when_layers_or_frames" id="multicel_when_layers_or_frames" visible="false"
                  tooltip="@.multicel_when_layers_or_frames_tooltip"
                  pref="selection.multicel_when_layers_or_frames"/>
         </vbox>
@@ -284,9 +284,9 @@
           <separator text="@.section_timeline" horizontal="true" />
           <check text="@.autotimeline" id="autotimeline" tooltip="@.autotimeline_tooltip"
                  pref="general.autoshow_timeline" />
-          <check text="@.rewind_on_stop" id="rewind_on_stop" tooltip="@.rewind_on_stop_tooltip"
+          <check text="@.rewind_on_stop" id="rewind_on_stop" visible="false" tooltip="@.rewind_on_stop_tooltip"
                  pref="general.rewind_on_stop" />
-          <hbox>
+          <hbox visible="false">
             <label text="@.default_first_frame" for="first_frame" />
             <expr id="first_frame" />
           </hbox>
@@ -500,8 +500,8 @@
         <vbox id="section_alerts">
           <separator text="@.section_alerts" horizontal="true" />
           <hbox>
-            <label text="@.open_sequence_alert" for="open_sequence" />
-            <combobox id="open_sequence">
+            <label visible="false" text="@.open_sequence_alert" for="open_sequence" />
+            <combobox visible="false" id="open_sequence">
               <listitem text="@.open_sequence_alert_ask" value="0" />
               <listitem text="@.open_sequence_alert_yes" value="1" />
               <listitem text="@.open_sequence_alert_no" value="2" />
@@ -509,7 +509,7 @@
           </hbox>
           <check id="file_format_doesnt_support_alert" text="@.file_format_doesnt_support_alert"
                  pref="save_file.show_file_format_doesnt_support_alert" />
-          <check id="export_animation_in_sequence_alert" text="@.export_animation_in_sequence_alert"
+          <check id="export_animation_in_sequence_alert" visible="false" text="@.export_animation_in_sequence_alert"
                  pref="save_file.show_export_animation_in_sequence_alert" />
           <check id="overwrite_files_on_export_alert" text="@.overwrite_files_on_export_alert"
                  pref="export_file.show_overwrite_files_alert" />

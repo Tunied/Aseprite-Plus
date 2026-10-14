@@ -482,6 +482,8 @@
 
   <tool>
     <option id="opacity" type="int" default="255" />
+    <option id="clone_aligned" type="bool" default="true" />
+    <option id="clone_sample" type="int" default="0" />
     <option id="tolerance" type="int" default="0" />
     <option id="contiguous" type="bool" default="true" />
     <option id="filled" type="bool" default="false" />

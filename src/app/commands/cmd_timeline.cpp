@@ -24,6 +24,7 @@ public:
   TimelineCommand();
 
 protected:
+  std::string onGetFriendlyName() const override { return "Layers"; }
   bool onEnabled(Context* context) override;
   bool onNeedsParams() const override { return true; }
   void onLoadParams(const Params& params) override;

@@ -15,8 +15,8 @@
       <label text="@.size" />
       <label text="" id="size" cell_hspan="2" />
 
-      <label text="@.frames" />
-      <label text="" id="frames" cell_hspan="2" />
+      <label text="@.frames" visible="false" />
+      <label text="" visible="false" id="frames" cell_hspan="2" />
     </grid>
 
     <grid columns="2">

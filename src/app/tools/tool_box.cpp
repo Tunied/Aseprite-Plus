@@ -10,6 +10,7 @@
 #endif
 
 #include "app/tools/tool_box.h"
+#include "app/tools/clone_stamp.h"
 
 #include "app/gui_xml.h"
 #include "app/i18n/strings.h"
@@ -142,6 +143,7 @@ ToolBox::ToolBox()
   m_inks[WellKnownInks::Blur] = new BlurInk();
   m_inks[WellKnownInks::Jumble] = new JumbleInk();
   m_inks[WellKnownInks::Text] = new TextInk();
+  m_inks["clone_stamp"] = new CloneStampInk();
 
   m_controllers[WellKnownControllers::Freehand] = new FreehandController();
   m_controllers[WellKnownControllers::PointByPoint] = new PointByPointController();

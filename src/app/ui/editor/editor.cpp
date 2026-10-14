@@ -12,6 +12,7 @@
 #include "app/ui/editor/editor.h"
 
 #include "app/app.h"
+#include "app/static_editing.h"
 #include "app/app_menus.h"
 #include "app/color.h"
 #include "app/color_picker.h"
@@ -428,6 +429,7 @@ void Editor::setLayer(const Layer* layer)
 
 void Editor::setFrame(frame_t frame)
 {
+  if (kStaticEditing) frame = 0;
   if (m_frame == frame)
     return;
 
@@ -696,7 +698,7 @@ void Editor::drawOneSpriteUnclippedRect(ui::Graphics* g,
     m_renderEngine->setupBackground(m_document, IMAGE_RGB);
     m_renderEngine->disableOnionskin();
 
-    if ((m_flags & kShowOnionskin) == kShowOnionskin) {
+    if (!kStaticEditing && (m_flags & kShowOnionskin) == kShowOnionskin) {
       if (m_docPref.onionskin.active()) {
         OnionskinOptions opts(
           (m_docPref.onionskin.type() == app::gen::OnionskinType::MERGE ?
@@ -1071,6 +1073,18 @@ void Editor::drawSpriteUnclippedRect(ui::Graphics* g, const gfx::Rect& _rc)
     const gfx::Point prevPoint(m_selectionToolMask->bounds().point2());
     if (prevPoint.x >= m_sprite->width() || prevPoint.y >= m_sprite->height())
       redrawBackground = true;
+  }
+
+  if (App::instance()->activeTool()->getId() == "clone_stamp") {
+    auto& stamp = m_document->cloneStamp();
+    if (stamp.valid) {
+      const auto p = stamp.currentSource;
+      auto c = editorToScreen(gfx::Rect(p.x, p.y, 1, 1)).center() - bounds().origin();
+      const int r = 4 * ui::guiscale();
+      g->drawRect(gfx::rgba(0, 0, 0, 255), gfx::Rect(c.x-r-1, c.y-r-1, 2*r+3, 2*r+3));
+      g->drawLine(gfx::rgba(255, 255, 255, 255), gfx::Point(c.x-r, c.y), gfx::Point(c.x+r, c.y));
+      g->drawLine(gfx::rgba(255, 255, 255, 255), gfx::Point(c.x, c.y-r), gfx::Point(c.x, c.y+r));
+    }
   }
 
   // Post-render decorator.
@@ -2211,6 +2225,16 @@ bool Editor::onProcessMessage(Message* msg)
 
         updateToolByTipProximity(mouseMsg->pointerType());
         updateAutoCelGuides(msg);
+        if (App::instance()->activeTool()->getId() == "clone_stamp") {
+          auto& stamp = m_document->cloneStamp();
+          if (stamp.valid) {
+            const auto p = screenToEditor(mouseMsg->position()) - mainTilePosition();
+            auto* tool = App::instance()->activeTool();
+            stamp.currentSource = !stamp.pending && stamp.offsetValid &&
+              (hasCapture() || Preferences::instance().tool(tool).cloneAligned()) ? p + stamp.offset : stamp.anchor;
+            invalidate();
+          }
+        }
 
         return m_state->onMouseMove(this, mouseMsg);
       }
@@ -3097,6 +3121,7 @@ void Editor::startZoomingState(ui::MouseMessage* msg)
 
 void Editor::play(const bool playOnce, const bool playAll, const bool playSubtags)
 {
+  if (kStaticEditing) return;
   ASSERT(m_state);
   if (!m_state)
     return;

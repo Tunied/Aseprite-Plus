@@ -12,6 +12,7 @@
 #include "app/ui/editor/state_with_wheel_behavior.h"
 
 #include "app/app.h"
+#include "app/static_editing.h"
 #include "app/commands/commands.h"
 #include "app/commands/params.h"
 #include "app/modules/palettes.h"
@@ -211,6 +212,7 @@ void StateWithWheelBehavior::processWheelAction(Editor* editor,
     }
 
     case WheelAction::Frame: {
+      if (kStaticEditing) break;
       frame_t deltaFrame = 0;
       if (preciseWheel == PreciseWheel::On) {
         if (dz < 0.0)

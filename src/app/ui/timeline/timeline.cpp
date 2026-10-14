@@ -10,6 +10,7 @@
 #endif
 
 #include "app/ui/timeline/timeline.h"
+#include "app/static_editing.h"
 
 #include "app/app.h"
 #include "app/app_menus.h"
@@ -267,6 +268,7 @@ Timeline::Timeline(TooltipManager* tooltipManager)
 
   setDoubleBuffered(true);
   addChild(&m_aniControls);
+  m_aniControls.setVisible(!kStaticEditing);
   addChild(&m_hbar);
   addChild(&m_vbar);
 
@@ -1670,6 +1672,18 @@ void Timeline::onPaint(ui::PaintEvent& ev)
     // sprite) to avoid locking the UI.
     const DocReader docReader(m_document, 0);
 
+    if (kStaticEditing) {
+      g->fillRect(skinTheme()->colors.workspace(), clientBounds());
+      drawHeader(g);
+      layer_t first, last;
+      if (getDrawableLayers(&first, &last)) {
+        IntersectClip clip(g, getLayerHeadersBounds());
+        if (clip) for (layer_t i = last; i >= first; --i) drawLayer(g, i);
+      }
+      m_redrawMarchingAntsOnly = false;
+      return;
+    }
+
     if (m_redrawMarchingAntsOnly) {
       drawClipboardRange(g);
       m_redrawMarchingAntsOnly = false;
@@ -3041,6 +3055,7 @@ gfx::Rect Timeline::getLayerHeadersBounds() const
 
 gfx::Rect Timeline::getFrameHeadersBounds() const
 {
+  if (kStaticEditing) return gfx::Rect();
   gfx::Rect rc = clientBounds();
   rc.x += separatorX();
   rc.y += topHeight();
@@ -3051,6 +3066,7 @@ gfx::Rect Timeline::getFrameHeadersBounds() const
 
 gfx::Rect Timeline::getOnionskinFramesBounds() const
 {
+  if (kStaticEditing) return gfx::Rect();
   DocumentPreferences& docPref = this->docPref();
   if (!docPref.onionskin.active())
     return gfx::Rect();
@@ -3070,6 +3086,7 @@ gfx::Rect Timeline::getOnionskinFramesBounds() const
 
 gfx::Rect Timeline::getCelsBounds() const
 {
+  if (kStaticEditing) return getLayerHeadersBounds(); // Scroll viewport is the layer list.
   gfx::Rect rc = clientBounds();
   rc.x += separatorX();
   rc.w -= separatorX();
@@ -3082,6 +3099,16 @@ gfx::Rect Timeline::getPartBounds(const Hit& hit) const
 {
   gfx::Rect bounds = clientBounds();
   int y = topHeight();
+  if (kStaticEditing) {
+    switch (hit.part) {
+      case PART_HEADER_CONTINUOUS: case PART_HEADER_GEAR: case PART_HEADER_ONIONSKIN:
+      case PART_HEADER_FRAME: case PART_CEL: case PART_SEPARATOR: return gfx::Rect();
+      case PART_ROW_CONTINUOUS_ICON:
+        if (!validLayer(hit.layer) || !getLayer(hit.layer)->isGroup()) return gfx::Rect();
+        break;
+      default: break;
+    }
+  }
 
   switch (hit.part) {
     case PART_NOTHING: break;
@@ -3125,9 +3152,9 @@ gfx::Rect Timeline::getPartBounds(const Hit& hit) const
                        headerBoxHeight());
 
     case PART_HEADER_LAYER:
-      return gfx::Rect(bounds.x + headerBoxWidth() * 5,
+      return gfx::Rect(bounds.x + headerBoxWidth() * (kStaticEditing ? 2 : 5),
                        bounds.y + y,
-                       separatorX() - headerBoxWidth() * 5,
+                       separatorX() - headerBoxWidth() * (kStaticEditing ? 2 : 5),
                        headerBoxHeight());
 
     case PART_HEADER_FRAME: {
@@ -3181,7 +3208,7 @@ gfx::Rect Timeline::getPartBounds(const Hit& hit) const
 
     case PART_ROW_TEXT:
       if (validLayer(hit.layer)) {
-        int x = headerBoxWidth() * 3;
+        int x = headerBoxWidth() * (kStaticEditing && !getLayer(hit.layer)->isGroup() ? 2 : 3);
         return gfx::Rect(bounds.x + x,
                          bounds.y + y + headerBoxHeight() +
                            layerBoxHeight() * (lastLayer() - hit.layer) - viewScroll().y,
@@ -3530,8 +3557,24 @@ void Timeline::updateByMousePos(ui::Message* msg, const gfx::Point& mousePos)
 Timeline::Hit Timeline::hitTest(ui::Message* msg, const gfx::Point& mousePos)
 {
   Hit hit(PART_NOTHING);
-  if (!m_document || !m_adapter)
+  if (!m_document || !m_adapter) return hit;
+  if (kStaticEditing) {
+    hit.frame = col_t(0);
+    hit.layer = lastLayer() - ((mousePos.y - headerBoxHeight() + viewScroll().y) / layerBoxHeight());
+    hit.veryBottom = hit.layer < 0;
+    if (hasCapture() && !m_rows.empty()) hit.layer = std::clamp(hit.layer, firstLayer(), lastLayer());
+    if (mousePos.y < headerBoxHeight()) {
+      hit.layer = -1;
+      hit.part = getPartBounds(Hit(PART_HEADER_EYE)).contains(mousePos) ? PART_HEADER_EYE :
+                 getPartBounds(Hit(PART_HEADER_PADLOCK)).contains(mousePos) ? PART_HEADER_PADLOCK : PART_HEADER_LAYER;
+    }
+    else if (validLayer(hit.layer)) {
+      hit.part = getPartBounds(Hit(PART_ROW_EYE_ICON, hit.layer)).contains(mousePos) ? PART_ROW_EYE_ICON :
+                 getPartBounds(Hit(PART_ROW_PADLOCK_ICON, hit.layer)).contains(mousePos) ? PART_ROW_PADLOCK_ICON :
+                 getPartBounds(Hit(PART_ROW_CONTINUOUS_ICON, hit.layer)).contains(mousePos) ? PART_ROW_CONTINUOUS_ICON : PART_ROW_TEXT;
+    }
     return hit;
+  }
 
   if (m_clk.part == PART_SEPARATOR) {
     hit.part = PART_SEPARATOR;
@@ -4046,6 +4089,7 @@ void Timeline::cleanClk()
 
 gfx::Size Timeline::getScrollableSize() const
 {
+  if (kStaticEditing) return gfx::Size(0, (m_rows.size() + 1) * layerBoxHeight());
   if (m_sprite) {
     return gfx::Size(getFrameXPos(m_adapter->totalFrames()) + getCelsBounds().w / 2,
                      (m_rows.size() + 1) * layerBoxHeight());
@@ -4058,7 +4102,7 @@ gfx::Point Timeline::getMaxScrollablePos() const
 {
   if (m_sprite) {
     gfx::Size size = getScrollableSize();
-    int max_scroll_x = size.w - getCelsBounds().w + 1 * guiscale();
+    int max_scroll_x = kStaticEditing ? 0 : size.w - getCelsBounds().w + 1 * guiscale();
     int max_scroll_y = size.h - getCelsBounds().h + 1 * guiscale();
     max_scroll_x = std::max(0, max_scroll_x);
     max_scroll_y = std::max(0, max_scroll_y);
@@ -4485,6 +4529,7 @@ view::col_t Timeline::lastFrame() const
 
 int Timeline::topHeight() const
 {
+  if (kStaticEditing) return 0;
   int h = 0;
   if (m_document && m_sprite) {
     h += skinTheme()->dimensions.timelineTopBorder();
@@ -4885,6 +4930,7 @@ void Timeline::setLayerCollapsedFlag(const layer_t l, const bool state)
 
 int Timeline::separatorX() const
 {
+  if (kStaticEditing) return clientBounds().w;
   return std::clamp(m_separator_x * guiscale(),
                     headerBoxWidth(),
                     std::max(bounds().w - guiscale(), headerBoxWidth()));

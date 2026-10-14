@@ -4,6 +4,11 @@
 基于官方 Aseprite C++ 源码（https://github.com/aseprite/aseprite）的本地增强版本，目标平台为 macOS arm64；
 绘图引擎、文件格式、Lua Extension 等全部沿用官方实现，只在官方代码之上做最小改动的增强。
 
+## 已确认产品方向
+- 面向静态像素画，用户界面只提供图层，不提供帧动画工作流；旧动画实现保留，隐藏相关界面入口。当前已加入静态界面分支。
+- 新功能不设计动画/跨帧能力。图章不提供软边硬度或独立流量，入口与规则见 `Clone_Stamp.md`。
+- 静态界面边界见 `Static_Editing_Scope.md`。
+
 ## Remote
 - `upstream`：https://github.com/aseprite/aseprite —— 同步来源，会不定期合并进来。
 - `origin`：https://github.com/Tunied/Aseprite-Plus —— 初始 fork 来源。
@@ -22,6 +27,9 @@
 - 图标来源：`src/main/osx/AsepritePlus.png` → `AsepritePlus.icns`，
   换图标后运行 `misc/make_app_icon.sh` 重新生成。
 - 为了符合原版 EULA，程序内部的关于窗口、版本号仍保留上游 Aseprite 标识。
+
+## References 导航
+- `AI/References/Clone_Stamp_Feasibility.md`：原生仿制图章的代码入口、可复用能力与实施边界；当前实现规则见 `AI/AI_Context/Clone_Stamp.md`。
 
 ## 协作与构建
 - 双击父目录 `../一键编译Aseprite.command`：编译并直接安装到 `/Applications/Aseprite Plus.app`（同名替换）。

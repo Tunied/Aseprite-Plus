@@ -2042,6 +2042,27 @@ ContextBar::ContextBar(TooltipManager* tooltipManager, ColorBar* colorBar)
 
   addChild(m_zoomButtons = new ZoomButtons);
   addChild(m_samplingSelector = new SamplingSelector);
+  addChild(m_cloneFields = new HBox);
+  auto* sampleButton = new Button(Strings::context_bar_clone_source());
+  m_cloneFields->addChild(sampleButton);
+  sampleButton->Click.connect([] {
+    UIContext::instance()->executeCommandFromMenuOrShortcut(Commands::instance()->byId(CommandId::CloneStampSource()));
+  });
+  m_cloneFields->addChild(m_cloneAligned = new CheckBox(Strings::context_bar_clone_aligned()));
+  m_cloneFields->addChild(m_cloneSample = new ComboBox);
+  m_cloneSample->addItem(Strings::context_bar_clone_layer());
+  m_cloneSample->addItem(Strings::context_bar_clone_below());
+  m_cloneSample->addItem(Strings::context_bar_clone_all());
+  m_cloneAligned->Click.connect([this] {
+    auto* tool = App::instance()->toolBox()->getToolById("clone_stamp");
+    Preferences::instance().tool(tool).cloneAligned(m_cloneAligned->isSelected());
+    if (auto* doc = UIContext::instance()->activeDocument()) doc->cloneStamp().offsetValid = false;
+  });
+  m_cloneSample->Change.connect([this] {
+    auto* tool = App::instance()->toolBox()->getToolById("clone_stamp");
+    Preferences::instance().tool(tool).cloneSample(m_cloneSample->getSelectedItemIndex());
+  });
+  m_cloneFields->setVisible(false);
 
   addChild(m_brushBack = new BrushBackField);
   addChild(m_brushType = new BrushTypeField(this));
@@ -2316,6 +2337,12 @@ void ContextBar::updateForTool(tools::Tool* tool)
   m_brushPatternField->setBrushPattern(preferences.brush.pattern());
 
   // Tool ink
+  const bool isClone = tool && tool->getId() == "clone_stamp";
+  m_cloneFields->setVisible(isClone);
+  if (isClone && toolPref) {
+    m_cloneAligned->setSelected(toolPref->cloneAligned());
+    m_cloneSample->setSelectedItemIndex(std::clamp(toolPref->cloneSample(), 0, 2));
+  }
   bool isPaint = tool && (tool->getInk(0)->isPaint() || tool->getInk(1)->isPaint());
   bool isEffect = tool && (tool->getInk(0)->isEffect() || tool->getInk(1)->isEffect());
 
@@ -2424,11 +2451,11 @@ void ContextBar::updateForTool(tools::Tool* tool)
   m_inkShades->setVisible(hasInkShades);
   m_eyedropperField->setVisible(isEyedropper);
   m_autoSelectLayer->setVisible(isMove);
-  m_dynamics->setVisible(supportDynamics);
+  m_dynamics->setVisible(supportDynamics && !isClone);
   m_dynamics->setOptionsGridVisibility(isFreehand && !hasSelectOptions);
   if (supportDynamics)
     m_dynamics->updateIconFromActiveToolPref();
-  m_freehandBox->setVisible(isFreehand && (supportOpacity || hasSelectOptions));
+  m_freehandBox->setVisible(!isClone && isFreehand && (supportOpacity || hasSelectOptions));
   m_freehandAlgo->setVisible(!hasSprayOptions);
   m_toleranceLabel->setVisible(hasTolerance);
   m_tolerance->setVisible(hasTolerance);
@@ -2444,7 +2471,7 @@ void ContextBar::updateForTool(tools::Tool* tool)
   m_transformation->setVisible(false);
   m_selectBoxHelp->setVisible(false);
 
-  m_symmetry->setVisible(Preferences::instance().symmetryMode.enabled() &&
+  m_symmetry->setVisible(!isClone && Preferences::instance().symmetryMode.enabled() &&
                          (isPaint || isEffect || hasSelectOptions));
   m_symmetry->updateWithCurrentDocument();
 
@@ -2634,6 +2661,9 @@ void ContextBar::setActiveBrush(const doc::BrushRef& brush)
 
 doc::BrushRef ContextBar::activeBrush(tools::Tool* tool, tools::Ink* ink) const
 {
+  if (!tool) tool = App::instance()->activeTool();
+  if (tool && tool->getId() == "clone_stamp")
+    return ContextBar::createBrushFromPreferences(&Preferences::instance().tool(tool).brush);
   if (ink == nullptr)
     ink = (tool ? tool->getInk(0) : nullptr);
 
