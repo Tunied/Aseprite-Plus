@@ -8,6 +8,8 @@
 #include "doc/object.h"
 #include "gfx/point.h"
 
+#include <optional>
+
 namespace app {
 class Doc;
 
@@ -16,22 +18,44 @@ struct CloneStampState {
   bool pending = false;
   bool valid = false;
   bool offsetValid = false;
+  bool showSamplePair = false;
   doc::ObjectId sourceLayer = doc::NullId;
   gfx::Point anchor;
   gfx::Point offset;
   gfx::Point currentSource;
+  gfx::Point currentDestination;
+  std::optional<gfx::Point> pendingMarker;
+
+  void requestSample(std::optional<gfx::Point> marker = std::nullopt) {
+    pending = true;
+    pendingMarker = marker;
+  }
+  void cancelSample() {
+    pending = false;
+    pendingMarker.reset();
+  }
+  gfx::Point previewSource(const gfx::Point& destination) const {
+    return offsetValid ? destination + offset : anchor;
+  }
 
   void sample(const gfx::Point& point, doc::ObjectId layer) {
     anchor = currentSource = point;
     sourceLayer = layer;
     valid = true;
-    pending = offsetValid = false;
+    // Y records the destination before the source click, so the pair defines
+    // the offset immediately instead of waiting for the first painted pixel.
+    offsetValid = showSamplePair = pendingMarker.has_value();
+    currentDestination = pendingMarker.value_or(point);
+    if (offsetValid) offset = anchor - currentDestination;
+    cancelSample();
   }
-  void beginStroke(const gfx::Point& destination, bool aligned) {
-    if (!aligned || !offsetValid) {
+  void beginStroke(const gfx::Point& destination) {
+    if (!offsetValid) {
       offset = anchor - destination;
       offsetValid = true;
     }
+    showSamplePair = false;
+    currentDestination = destination;
     currentSource = destination + offset;
   }
 };

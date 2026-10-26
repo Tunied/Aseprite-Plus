@@ -1475,12 +1475,13 @@ public:
   GridLockField() : ButtonSet(1)
   {
     addItem(skin::SkinPartPtr(new skin::SkinPart));
+    setId("grid_lock");
     setMultiMode(MultiMode::Set);
     ItemChange.connect([this](Item*) {
       auto* doc = UIContext::instance()->activeDocument();
       if (!doc) return;
       // Finish a floating selection before changing the editing constraint.
-      if (auto* editor = Editor::activeEditor())
+      if (auto* editor = Editor::activeEditor(); editor && editor->isMovingPixels())
         editor->dropMovingPixels();
       auto& lock = doc->gridLock();
       auto& pref = Preferences::instance().document(doc);
@@ -2100,16 +2101,10 @@ ContextBar::ContextBar(TooltipManager* tooltipManager, ColorBar* colorBar)
   sampleButton->Click.connect([] {
     UIContext::instance()->executeCommandFromMenuOrShortcut(Commands::instance()->byId(CommandId::CloneStampSource()));
   });
-  m_cloneFields->addChild(m_cloneAligned = new CheckBox(Strings::context_bar_clone_aligned()));
   m_cloneFields->addChild(m_cloneSample = new ComboBox);
   m_cloneSample->addItem(Strings::context_bar_clone_layer());
   m_cloneSample->addItem(Strings::context_bar_clone_below());
   m_cloneSample->addItem(Strings::context_bar_clone_all());
-  m_cloneAligned->Click.connect([this] {
-    auto* tool = App::instance()->toolBox()->getToolById("clone_stamp");
-    Preferences::instance().tool(tool).cloneAligned(m_cloneAligned->isSelected());
-    if (auto* doc = UIContext::instance()->activeDocument()) doc->cloneStamp().offsetValid = false;
-  });
   m_cloneSample->Change.connect([this] {
     auto* tool = App::instance()->toolBox()->getToolById("clone_stamp");
     Preferences::instance().tool(tool).cloneSample(m_cloneSample->getSelectedItemIndex());
@@ -2215,8 +2210,9 @@ void ContextBar::onInitTheme(ui::InitThemeEvent& ev)
 
 void ContextBar::onSizeHint(SizeHintEvent& ev)
 {
+  Box::onSizeHint(ev);
   auto theme = SkinTheme::get(this);
-  ev.setSizeHint(gfx::Size(0, theme->dimensions.contextBarHeight()));
+  ev.setSizeHint(gfx::Size(0, std::max(ev.sizeHint().h, theme->dimensions.contextBarHeight())));
 }
 
 void ContextBar::onToolSetOpacity(const int& newOpacity)
@@ -2428,7 +2424,6 @@ void ContextBar::updateForTool(tools::Tool* tool)
   const bool isClone = tool && tool->getId() == "clone_stamp";
   m_cloneFields->setVisible(isClone);
   if (isClone && toolPref) {
-    m_cloneAligned->setSelected(toolPref->cloneAligned());
     m_cloneSample->setSelectedItemIndex(std::clamp(toolPref->cloneSample(), 0, 2));
   }
   bool isPaint = tool && (tool->getInk(0)->isPaint() || tool->getInk(1)->isPaint());

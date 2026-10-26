@@ -372,6 +372,7 @@ private:
 
   void drawBackground(ui::Graphics* g);
   void drawSpriteUnclippedRect(ui::Graphics* g, const gfx::Rect& rc);
+  void drawCloneStampOverlay(ui::Graphics* g);
   void drawMaskSafe();
   void drawMask(ui::Graphics* g);
   void drawMaskBoundaries(ui::Graphics* g, doc::MaskBoundaries& segs, int antsOffset = 0);

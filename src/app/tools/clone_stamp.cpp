@@ -86,11 +86,11 @@ void CloneStampInk::prepareForStrokes(ToolLoop* loop, Strokes& strokes)
   if (!m_sample || strokes.empty() || strokes[0].empty()) return;
   auto& state = loop->getDocument()->cloneStamp();
   if (!m_started) {
-    state.beginStroke(strokes[0].firstPoint().toPoint(),
-                      Preferences::instance().tool(loop->getTool()).cloneAligned());
+    state.beginStroke(strokes[0].firstPoint().toPoint());
     m_started = true;
   }
-  state.currentSource = strokes[0].lastPoint().toPoint() + state.offset;
+  state.currentDestination = strokes[0].lastPoint().toPoint();
+  state.currentSource = state.currentDestination + state.offset;
 }
 
 void CloneStampInk::inkHline(int x1, int y, int x2, ToolLoop* loop)

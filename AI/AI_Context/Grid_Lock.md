@@ -24,4 +24,6 @@
 
 ## 验证入口
 - `OLDKING_BUILD_GRID_LOCK_TESTS=ON` 构建 `oldking_grid_lock_tests`；`misc/test_grid_lock.sh` 使用隔离偏好目录执行真实绘图/浮动选区事务。
+- 同一构建选项生成 `oldking_grid_lock_ui_tests`；`misc/test_grid_lock_ui.sh` 用隔离偏好目录验证实际按钮回调、原生编辑器状态和网格重绘，覆盖空网格配置、菜单同步及浮动选区结束。仅在改动此激活路径时运行，可能短暂打开测试窗口。
+- `Editor::dropMovingPixels()` 仅能在 `isMovingPixels()` 为真时调用；普通待机状态不能弹栈。选格使用 `Site::gridBounds()`，与渲染的默认网格回退一致。
 - GUI 布局、图标、选格和方向键的实际操作体验由用户最终验收。

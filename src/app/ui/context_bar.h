@@ -186,7 +186,6 @@ private:
   SamplingSelector* m_samplingSelector;
   BrushBackField* m_brushBack;
   ui::Box* m_cloneFields;
-  ui::CheckBox* m_cloneAligned;
   ui::ComboBox* m_cloneSample;
   BrushTypeField* m_brushType;
   BrushAngleField* m_brushAngle;

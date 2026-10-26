@@ -83,7 +83,7 @@ int app_main(int argc, char** argv) {
     check(tool && tool->getInk(0)->isEffect() && tool->getInk(0)->isPaint(), "native clone tool registered");
     Preferences::instance().resetToolPreferences(tool);
     auto& pref = Preferences::instance().tool(tool);
-    pref.cloneSample(0); pref.cloneAligned(true);
+    pref.cloneSample(0);
     const color_t red = rgba(255,0,0,255), green = rgba(0,255,0,255), blue = rgba(0,0,255,255);
     auto* sprite = new Sprite(ImageSpec(ColorMode::RGB, 12, 8));
     auto* doc = new Doc(sprite); context->documents().add(doc); context->setActiveDocument(doc);
@@ -91,7 +91,57 @@ int app_main(int argc, char** argv) {
     image->putPixel(0,0,red); image->putPixel(1,0,green); image->putPixel(2,0,blue);
     auto* source = layer(sprite,image,{2,1});
     doc->cloneStamp().sample({2,1},source->id());
+    auto& stamp = doc->cloneStamp();
+    auto* pairedTarget = layer(sprite);
+    stamp.requestSample(gfx::Point(8,5));
+    stamp.sample({2,1},source->id());
+    check(stamp.showSamplePair && stamp.currentDestination == gfx::Point(8,5) &&
+          stamp.currentSource == gfx::Point(2,1) && stamp.offset == gfx::Point(-6,-4),
+          "Y destination and clicked source define the green/red reference pair and copy offset");
+    check(stamp.previewSource({9,5}) == gfx::Point(3,1),
+          "hover source follows the reference offset before any painting");
+    stroke(context,doc,pairedTarget,{9,5},{9,5});
+    check(pixel(pairedTarget,9,5)==green && !stamp.showSamplePair &&
+          stamp.currentSource == gfx::Point(3,1),
+          "first painted point keeps Y-to-source offset even when it differs from Y");
+    stroke(context,doc,pairedTarget,{10,5},{10,5});
+    check(pixel(pairedTarget,10,5)==blue,"aligned strokes retain the explicitly selected offset");
+    const auto previousOffset = stamp.offset;
+    stamp.requestSample(gfx::Point(7,7));
+    stamp.cancelSample();
+    check(stamp.offsetValid && stamp.offset == previousOffset && stamp.anchor == gfx::Point(2,1),
+          "cancelling a new Y selection preserves the existing copy offset");
+    stamp.requestSample(gfx::Point(8,6));
+    stamp.sample({2,1},source->id());
+    check(stamp.previewSource({9,6}) == gfx::Point(3,1),
+          "resampling replaces the Y reference offset");
+    stroke(context,doc,pairedTarget,{9,6},{9,6});
+    check(pixel(pairedTarget,9,6)==green,"first stroke honors the new Y reference");
+    stroke(context,doc,pairedTarget,{10,6},{10,6});
+    check(pixel(pairedTarget,10,6)==blue,"subsequent strokes retain the new Y offset");
+    CloneStampState horizontal;
+    horizontal.requestSample(gfx::Point(10,3));
+    horizontal.sample({0,3},source->id());
+    horizontal.beginStroke({25,6});
+    check(horizontal.currentSource == gfx::Point(15,6) && horizontal.offset == gfx::Point(-10,0),
+          "source ten pixels left of Y remains ten pixels left of a later brush position");
+    stamp.sample({2,1},source->id());
+    stamp.requestSample(gfx::Point(8,5));
+    check(stamp.pending && stamp.pendingMarker == gfx::Point(8,5),
+          "sampling marks the Y position independently of the source");
+    stamp.cancelSample();
+    check(!stamp.pending && !stamp.pendingMarker && stamp.valid && stamp.anchor == gfx::Point(2,1),
+          "cancelling sampling removes the temporary mark and preserves the previous source");
+    stamp.requestSample();
+    check(stamp.pending && !stamp.pendingMarker,"toolbar sampling has no canvas position marker");
+    stamp.sample({2,1},source->id());
+    check(!stamp.pending && !stamp.pendingMarker && stamp.previewSource({8,5}) == gfx::Point(2,1),
+          "confirmed sampling clears the mark and previews the anchor before the first stroke");
     stroke(context,doc,source,{3,1},{5,1});
+    check(stamp.currentDestination == gfx::Point(5,1) && stamp.currentSource == gfx::Point(4,1),
+          "guide endpoints match actual drawing coordinates with an offset cel");
+    check(stamp.previewSource({8,5}) == gfx::Point(7,5),
+          "hover guide tracks the established offset");
     check(pixel(source,3,1)==red && pixel(source,4,1)==green && pixel(source,5,1)==blue,
           "same-layer overlap reads pre-expansion snapshot with cel offset");
     doc->undoHistory()->undo();
@@ -105,16 +155,20 @@ int app_main(int argc, char** argv) {
           "empty target and opacity do not accumulate within a stroke");
     stroke(context,doc,target,{2,3},{2,3});
     check(pixel(target,2,3)==red,"aligned source offset persists between strokes");
-    pref.cloneAligned(false);
-    stroke(context,doc,target,{3,3},{3,3});
-    check(pixel(target,3,3)==red,"unaligned restarts from original source");
-    stroke(context,doc,target,{4,3},{4,3},255,true);
-    check(pixel(target,4,3)==0,"cancel rolls back destination");
+    stroke(context,doc,target,{3,3},{4,3});
+    check(pixel(target,3,3)==green && pixel(target,4,3)==blue,
+          "later strokes continue copying relative to the established destination reference");
+    check(stamp.currentDestination == gfx::Point(4,3) && stamp.currentSource == gfx::Point(5,1) &&
+          stamp.previewSource({8,5}) == gfx::Point(9,3),
+          "guide follows the same relative coordinates during and between strokes");
+    stamp.sample({2,1},source->id());
+    stroke(context,doc,target,{5,3},{5,3},255,true);
+    check(pixel(target,5,3)==0,"cancel rolls back destination");
+    stamp.sample({2,1},source->id());
     doc->mask()->replace(gfx::Rect(6,4,1,1)); doc->setMaskVisible(true);
     stroke(context,doc,target,{6,4},{7,4},255,false,3);
     check(pixel(target,6,4)==red && pixel(target,7,4)==0 && pixel(target,6,3)==0,"hard brush obeys selection");
     doc->setMaskVisible(false);
-    pref.cloneAligned(false);
     doc->cloneStamp().sample({0,0},source->id());
     stroke(context,doc,target,{8,5},{8,5});
     check(pixel(target,8,5)==0,"transparent source skips destination");

@@ -72,6 +72,11 @@
 #include "ui/ui.h"
 #include "view/layers.h"
 
+#if LAF_SKIA
+  #include "include/core/SkPathEffect.h"
+  #include "include/effects/SkDashPathEffect.h"
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -1075,18 +1080,6 @@ void Editor::drawSpriteUnclippedRect(ui::Graphics* g, const gfx::Rect& _rc)
       redrawBackground = true;
   }
 
-  if (App::instance()->activeTool()->getId() == "clone_stamp") {
-    auto& stamp = m_document->cloneStamp();
-    if (stamp.valid) {
-      const auto p = stamp.currentSource;
-      auto c = editorToScreen(gfx::Rect(p.x, p.y, 1, 1)).center() - bounds().origin();
-      const int r = 4 * ui::guiscale();
-      g->drawRect(gfx::rgba(0, 0, 0, 255), gfx::Rect(c.x-r-1, c.y-r-1, 2*r+3, 2*r+3));
-      g->drawLine(gfx::rgba(255, 255, 255, 255), gfx::Point(c.x-r, c.y), gfx::Point(c.x+r, c.y));
-      g->drawLine(gfx::rgba(255, 255, 255, 255), gfx::Point(c.x, c.y-r), gfx::Point(c.x, c.y+r));
-    }
-  }
-
   // An editor-only border; never included in image sampling or export.
   if ((m_flags & kShowGrid) && m_document->gridLock().locked()) {
     auto rect = m_document->gridLock().bounds;
@@ -1096,11 +1089,87 @@ void Editor::drawSpriteUnclippedRect(ui::Graphics* g, const gfx::Rect& _rc)
     g->drawRect(gfx::rgba(0, 255, 0, 255), rect);
   }
 
+  drawCloneStampOverlay(g);
+
   // Post-render decorator.
   if ((m_flags & kShowDecorators) && m_decorator) {
     EditorPostRenderImpl postRender(this, g);
     m_decorator->postRenderDecorator(&postRender);
   }
+}
+
+void Editor::drawCloneStampOverlay(ui::Graphics* g)
+{
+  auto* tool = getCurrentEditorTool();
+  if (tool->getId() != "clone_stamp") return;
+
+  auto& stamp = m_document->cloneStamp();
+  const auto green = gfx::rgba(0, 255, 0, 255);
+  const auto red = gfx::rgba(255, 0, 0, 255);
+  if (stamp.pending ? !stamp.pendingMarker : !stamp.valid) {
+    if (hasMouse())
+      m_brushPreview.drawCloneStampOutline(g, screenToEditor(mousePosInDisplay()) - mainTilePosition(),
+                                           stamp.pending ? red : green);
+    return;
+  }
+
+  const bool drawing = dynamic_cast<DrawingState*>(m_state.get()) != nullptr;
+  const bool tracking = hasMouse() || drawing;
+  if (!stamp.pending && tracking && !drawing && !stamp.showSamplePair) {
+    auto destination = screenToEditor(mousePosInDisplay());
+    if (Preferences::instance().cursor.snapToGrid() && m_docPref.grid.snap()) {
+      const auto brush = App::instance()->contextBar()->activeBrush(tool);
+      const auto size = brush->bounds().size();
+      const gfx::Point brushCenter(size.w / 2, size.h / 2);
+      destination = snap_to_grid(m_docPref.grid.bounds(), destination - brushCenter,
+                                 PreferSnapTo::ClosestGridVertex) + brushCenter;
+    }
+    destination -= mainTilePosition();
+    stamp.currentDestination = destination;
+    stamp.currentSource = stamp.previewSource(destination);
+  }
+  else if (!stamp.pending && !drawing && !stamp.showSamplePair)
+    stamp.currentSource = stamp.previewSource(stamp.currentDestination);
+
+  const auto destination = stamp.pending ? *stamp.pendingMarker : stamp.currentDestination;
+  const auto source = stamp.pending ? screenToEditor(mousePosInDisplay()) - mainTilePosition() :
+                                     stamp.currentSource;
+  const auto center = [this](const gfx::Point& point) {
+    const auto p = point + mainTilePosition();
+    return editorToScreen(gfx::Rect(p.x, p.y, 1, 1)).center() - bounds().origin();
+  };
+  const auto c = center(source);
+  const auto d = center(destination);
+  const auto black = gfx::rgba(0, 0, 0, 255);
+  const auto white = gfx::rgba(255, 255, 255, 255);
+
+  if (!stamp.pending || tracking) {
+    ui::Paint paint;
+    paint.style(ui::Paint::Stroke);
+#if LAF_SKIA
+    const SkScalar dash[] = { 4.0f * ui::guiscale(), 3.0f * ui::guiscale() };
+    paint.skPaint().setPathEffect(SkDashPathEffect::Make(dash, 2, 0.0f));
+#endif
+    // Outline each dash so the link remains visible on light and dark pixels.
+    paint.color(black);
+    paint.strokeWidth(3);
+    g->drawLine(gfx::PointF(c), gfx::PointF(d), paint);
+    paint.color(white);
+    paint.strokeWidth(1);
+    g->drawLine(gfx::PointF(c), gfx::PointF(d), paint);
+  }
+
+  const auto drawCross = [g, black](const gfx::Point& p, gfx::Color color) {
+    const int r = 4 * ui::guiscale();
+    g->fillRect(black, gfx::Rect(p.x-r-1, p.y-1, 2*r+3, 3));
+    g->fillRect(black, gfx::Rect(p.x-1, p.y-r-1, 3, 2*r+3));
+    g->drawLine(color, gfx::Point(p.x-r, p.y), gfx::Point(p.x+r, p.y));
+    g->drawLine(color, gfx::Point(p.x, p.y-r), gfx::Point(p.x, p.y+r));
+  };
+  m_brushPreview.drawCloneStampOutline(g, destination, green);
+  if (!stamp.pending || tracking) m_brushPreview.drawCloneStampOutline(g, source, red);
+  drawCross(d, green);
+  if (!stamp.pending) drawCross(c, red);
 }
 
 void Editor::drawSpriteClipped(const gfx::Region& updateRegion)
@@ -2164,6 +2233,7 @@ bool Editor::onProcessMessage(Message* msg)
     }
 
     case kMouseEnterMessage:
+      if (m_sprite && getCurrentEditorTool()->getId() == "clone_stamp") invalidate();
       // Do not update tool loop modifiers when the mouse exits and/re-enters
       // the editor area while we are inside the same tool loop (hasCapture()).
       // E.g. This avoids starting to rotate a rectangular marquee (Alt key
@@ -2176,6 +2246,7 @@ bool Editor::onProcessMessage(Message* msg)
       break;
 
     case kMouseLeaveMessage:
+      if (m_sprite && getCurrentEditorTool()->getId() == "clone_stamp") invalidate();
       if (!hasCapture())
         m_brushPreview.hide();
 
@@ -2215,6 +2286,7 @@ bool Editor::onProcessMessage(Message* msg)
 
         EditorStatePtr holdState(m_state);
         bool state = m_state->onMouseDown(this, mouseMsg);
+        if (getCurrentEditorTool()->getId() == "clone_stamp") invalidate();
 
         // Re-update the tool modifiers if the state has changed
         // (e.g. we are on DrawingState now). This is required for the
@@ -2236,13 +2308,8 @@ bool Editor::onProcessMessage(Message* msg)
         updateAutoCelGuides(msg);
         if (App::instance()->activeTool()->getId() == "clone_stamp") {
           auto& stamp = m_document->cloneStamp();
-          if (stamp.valid) {
-            const auto p = screenToEditor(mouseMsg->position()) - mainTilePosition();
-            auto* tool = App::instance()->activeTool();
-            stamp.currentSource = !stamp.pending && stamp.offsetValid &&
-              (hasCapture() || Preferences::instance().tool(tool).cloneAligned()) ? p + stamp.offset : stamp.anchor;
-            invalidate();
-          }
+          if (!stamp.pending) stamp.showSamplePair = false;
+          if (stamp.pending || stamp.valid) invalidate();
         }
 
         return m_state->onMouseMove(this, mouseMsg);
@@ -2254,6 +2321,7 @@ bool Editor::onProcessMessage(Message* msg)
         EditorStatePtr holdState(m_state);
         MouseMessage* mouseMsg = static_cast<MouseMessage*>(msg);
         bool result = m_state->onMouseUp(this, mouseMsg);
+        if (getCurrentEditorTool()->getId() == "clone_stamp") invalidate();
 
         updateToolByTipProximity(mouseMsg->pointerType());
         updateAutoCelGuides(msg);
@@ -2570,6 +2638,7 @@ void Editor::onFgColorChange()
 void Editor::onContextBarBrushChange()
 {
   m_brushPreview.redraw();
+  if (m_sprite && getCurrentEditorTool()->getId() == "clone_stamp") invalidate();
 }
 
 void Editor::onTiledModeBeforeChange()

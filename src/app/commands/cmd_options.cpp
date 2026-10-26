@@ -1059,6 +1059,12 @@ public:
       reset_screen = true;
     }
 
+    const int newFontScale = fontScale()->getValue();
+    if (newFontScale != m_pref.general.fontScale()) {
+      m_pref.general.fontScale(newFontScale);
+      reset_theme = true;
+    }
+
     if (reset_theme)
       ui::set_theme(ui::get_theme(), newUIScale);
 
@@ -1290,6 +1296,7 @@ private:
 
     uiScale()->setSelectedItemIndex(
       uiScale()->findItemIndexByValue(base::convert_to<std::string>(m_pref.general.uiScale())));
+    fontScale()->setValue(std::clamp(m_pref.general.fontScale(), 75, 200));
   }
 
   void updateScreenScaling()

@@ -5,8 +5,8 @@
         <author name="Ilija Melentijevic" url="https://ilkke.net/"/>
     </authors>
     <fonts>
-        <font id="default" font="Aseprite"/>
-        <font id="mini" font="Aseprite Mini" mnemonics="off"/>
+        <font id="default" font="Fusion Pixel" size="12"/>
+        <font id="mini" font="Fusion Pixel Mini" size="10" mnemonics="off"/>
     </fonts>
     <dimensions>
         <dim id="scrollbar_size" value="12"/>

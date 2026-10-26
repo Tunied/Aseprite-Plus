@@ -49,6 +49,7 @@
 #include "tinyxml2.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -508,6 +509,11 @@ void SkinTheme::loadXml(BackwardCompatibility* backward)
 {
   Fonts* fonts = Fonts::instance();
   const int scale = guiscale();
+  Preferences& pref = Preferences::instance();
+  const float fontScale = std::clamp(pref.general.fontScale(), 75, 200) / 100.0f;
+  const auto scaledFontSize = [fontScale](float size) {
+    return std::max(1.0f, fontScale == 1.0f ? size : std::round(size * fontScale));
+  };
 
   // Load the skin XML
   std::string xml_filename(base::join_path(m_path, "theme.xml"));
@@ -552,7 +558,9 @@ void SkinTheme::loadXml(BackwardCompatibility* backward)
         const char* mnemonicsStr = xmlFont->Attribute("mnemonics");
         bool mnemonics = mnemonicsStr ? (std::string(mnemonicsStr) != "off") : true;
 
-        text::FontRef font = fontData->getFont(m_fontMgr, size * ui::guiscale());
+        text::FontRef font = fontData->getFont(m_fontMgr,
+                                               size > 0.0f ? scaledFontSize(size) * scale : 0.0f,
+                                               fontScale * scale);
 
         // No font?
         if (font == nullptr) {
@@ -571,14 +579,14 @@ void SkinTheme::loadXml(BackwardCompatibility* backward)
           else {
             size = 10.0f;
           }
-          font = fontData->getFont(m_fontMgr, size * ui::guiscale());
+          font = fontData->getFont(m_fontMgr, scaledFontSize(size) * scale, fontScale * scale);
         }
 
         m_themeFonts[idStr] = ThemeFont(font, mnemonics);
 
         // Store a unscaled version for using when ui scaling is not desired (i.e. in a Canvas
         // widget with autoScaling enabled).
-        m_unscaledFonts[font.get()] = fontData->getFont(m_fontMgr, size);
+        m_unscaledFonts[font.get()] = fontData->getFont(m_fontMgr, scaledFontSize(size), fontScale);
 
         if (id == "default") {
           m_defaultFont = font;
@@ -606,17 +614,24 @@ void SkinTheme::loadXml(BackwardCompatibility* backward)
   }
 
   // Overwrite theme fonts by user defined fonts.
-  Preferences& pref = Preferences::instance();
+  const auto customFont = [fonts, &scaledFontSize, fontScale, scale](const FontInfo& fi) {
+    auto font = fonts->fontFromInfo(fi);
+    if (!font)
+      return font;
+    const float baseSize = fi.useDefaultSize() ? font->size() : fi.size();
+    return fonts->fontFromInfo(FontInfo(fi, scaledFontSize(baseSize),
+                                       fi.style(), fi.flags(), fi.hinting()), fontScale * scale);
+  };
   if (!pref.theme.font().empty()) {
     auto fi = base::convert_to<FontInfo>(pref.theme.font());
-    if (auto f = fonts->fontFromInfo(fi)) {
+    if (auto f = customFont(fi)) {
       m_defaultFont = f;
       m_defaultFontInfo = fi;
     }
   }
   if (!pref.theme.miniFont().empty()) {
     auto fi = base::convert_to<FontInfo>(pref.theme.miniFont());
-    if (auto f = fonts->fontFromInfo(fi)) {
+    if (auto f = customFont(fi)) {
       m_miniFont = f;
       m_miniFontInfo = fi;
     }
@@ -1083,6 +1098,23 @@ void SkinTheme::loadXml(BackwardCompatibility* backward)
     }
   }
 
+  // Theme artwork has fixed pixel dimensions, but its text can be larger.
+  // Reserve the actual line box before widgets calculate their size hints.
+  text::FontMetrics metrics;
+  m_defaultFont->metrics(&metrics);
+  const int textHeight = std::ceil(metrics.descent - metrics.ascent);
+  m_dimensions_by_id["context_bar_height"] =
+    std::max(m_dimensions_by_id["context_bar_height"],
+             int(std::ceil(float(textHeight) / scale)) + 8);
+
+  if (auto it = m_styles.find("window_with_title"); it != m_styles.end()) {
+    auto border = it->second->border();
+    auto title = m_styles.find("window_title_label");
+    const int topMargin = title != m_styles.end() ? title->second->margin().top() : 5 * scale;
+    border.top(std::max(border.top(), topMargin + textHeight + 3 * scale));
+    it->second->setBorder(border);
+  }
+
   ThemeFile<SkinTheme>::updateInternals();
 }
 
@@ -1285,6 +1317,22 @@ void SkinTheme::initWidget(Widget* widget)
     case kWindowCloseButtonWidget: widget->setStyle(styles.windowCloseButton()); break;
 
     default:                       break;
+  }
+}
+
+void SkinTheme::paintWidget(Graphics* g,
+                             const Widget* widget,
+                             const Style* style,
+                             const Rect& bounds)
+{
+  Theme::paintWidget(g, widget, style, bounds);
+  if (widget->type() == kWindowWidget && style == styles.windowWithTitle()) {
+    // Extend the titlebar face inside the original pixel frame. Its
+    // nine-slice artwork has a fixed top strip even when the font grows.
+    const int scale = guiscale();
+    g->fillRect(colors.windowTitlebarFace(),
+                Rect(bounds.x + 3 * scale, bounds.y + 3 * scale,
+                     bounds.w - 6 * scale, widget->border().top() - 5 * scale));
   }
 }
 
@@ -1519,7 +1567,7 @@ void SkinTheme::drawEntryText(ui::Graphics* g, ui::Entry* widget)
 
     IntersectClip clip(g, bounds);
     if (clip) {
-      int baselineAdjustment = widget->textBaseline();
+      float baselineAdjustment = widget->textBaseline();
       if (auto blob = widget->textBlob()) {
         baselineAdjustment -= blob->baseline();
       }
@@ -1532,7 +1580,7 @@ void SkinTheme::drawEntryText(ui::Graphics* g, ui::Entry* widget)
       g->drawTextWithDelegate(std::string(pos, paintText.end()), // TODO use a string_view()
                               fullText.empty() ? colors.entrySuffix() : colors.text(),
                               ColorNone,
-                              gfx::Point(bounds.x, baselineAdjustment),
+                              gfx::Point(bounds.x, std::round(baselineAdjustment)),
                               &delegate);
     }
   }

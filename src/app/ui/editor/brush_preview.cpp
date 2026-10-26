@@ -127,6 +127,12 @@ BrushRef BrushPreview::getCurrentBrush()
   return App::instance()->contextBar()->activeBrush(m_editor->getCurrentEditorTool());
 }
 
+bool BrushPreview::isCloneStampSampling() const
+{
+  return m_editor->document() && m_editor->document()->cloneStamp().pending &&
+         m_editor->getCurrentEditorTool()->getId() == "clone_stamp";
+}
+
 // static
 color_t BrushPreview::getBrushColor(Sprite* sprite, Layer* layer)
 {
@@ -169,7 +175,13 @@ void BrushPreview::show(const gfx::Point& screenPos)
 
   // Get cursor color
   const auto& pref = Preferences::instance();
+  const bool isClone = m_editor->getCurrentEditorTool()->getId() == "clone_stamp";
   app::Color appCursorColor = pref.cursor.cursorColor();
+  if (isClone) {
+    const auto& stamp = document->cloneStamp();
+    appCursorColor = stamp.pending || stamp.showSamplePair ? app::Color::fromRgb(255, 0, 0) :
+                                                           app::Color::fromRgb(0, 255, 0);
+  }
   m_blackAndWhiteNegative = (appCursorColor.getType() == app::Color::MaskType);
 
   BrushRef brush = getCurrentBrush();
@@ -178,7 +190,8 @@ void BrushPreview::show(const gfx::Point& screenPos)
   const bool isFloodfill = tool->getPointShape(0)->isFloodFill();
 
   // Get current tilemap mode
-  const TilemapMode tilemapMode = site.tilemapMode();
+  const bool cloneSampling = isCloneStampSampling();
+  const TilemapMode tilemapMode = cloneSampling ? TilemapMode::Pixels : site.tilemapMode();
 
   gfx::Rect origBrushBounds;
   if (isFloodfill && brush->type() != BrushType::kImageBrushType)
@@ -194,7 +207,7 @@ void BrushPreview::show(const gfx::Point& screenPos)
 
   // Get cursor position in the editor
   gfx::Point spritePos = m_editor->screenToEditor(screenPos);
-  if (pref.cursor.snapToGrid() && m_editor->docPref().grid.snap()) {
+  if (!cloneSampling && pref.cursor.snapToGrid() && m_editor->docPref().grid.snap()) {
     gfx::Point brushCenter(brushBounds.w / 2, brushBounds.h / 2);
     spritePos = snap_to_grid(m_editor->docPref().grid.bounds(),
                              spritePos - brushCenter,
@@ -211,7 +224,7 @@ void BrushPreview::show(const gfx::Point& screenPos)
   color_t mask_index = sprite->transparentColor();
 
   // Check dynamics option for freehand tools
-  if (tool && tool->getController(0)->isFreehand() &&
+  if (!cloneSampling && tool && tool->getController(0)->isFreehand() &&
       // TODO add support for dynamics to contour tool
       tool->getFill(0) == tools::FillNone) {
     const auto& dynamics = App::instance()->contextBar()->getDynamics();
@@ -247,7 +260,6 @@ void BrushPreview::show(const gfx::Point& screenPos)
     m_type = CROSSHAIR;
   }
 
-  const bool isClone = m_editor->getCurrentEditorTool()->getId() == "clone_stamp";
   bool showPreview = false;
   bool showPreviewWithEdges = false;
   bool cancelEdges = false;
@@ -280,6 +292,10 @@ void BrushPreview::show(const gfx::Point& screenPos)
       break;
   }
 
+  // Clone footprints are drawn at both source and destination by the editor.
+  // Keep only the native center cursor here, without a second uncolored edge.
+  if (isClone) m_type = CROSSHAIR;
+
   // For tiles as we show the edges of the tile, we add the crosshair
   // in the mouse position as a helper.
   if (m_type & BRUSH_BOUNDARIES && tilemapMode == TilemapMode::Tiles)
@@ -298,7 +314,8 @@ void BrushPreview::show(const gfx::Point& screenPos)
   }
 
   // Use a simple cross
-  if (pref.cursor.paintingCursorType() == gen::PaintingCursorType::SIMPLE_CROSSHAIR) {
+  if (!isClone &&
+      pref.cursor.paintingCursorType() == gen::PaintingCursorType::SIMPLE_CROSSHAIR) {
     m_type &= ~(CROSSHAIR | SELECTION_CROSSHAIR);
     m_type |= NATIVE_CROSSHAIR;
   }
@@ -896,6 +913,26 @@ void BrushPreview::strokeBrushBoundaries(ui::Graphics* g, gfx::Point pos, const 
   path.offset(pos.x, pos.y);
 
   g->drawPath(path, paint);
+}
+
+void BrushPreview::drawCloneStampOutline(ui::Graphics* g,
+                                        const gfx::Point& spritePos,
+                                        gfx::Color color)
+{
+  const Site site = m_editor->getSite();
+  createBoundaries(site, spritePos);
+  m_lastLayer = site.layer();
+  m_lastTilemapMode = site.tilemapMode();
+  const auto position = m_editor->editorToScreen(spritePos + m_editor->mainTilePosition()) -
+                        m_editor->bounds().origin();
+  os::Paint paint;
+  paint.style(os::Paint::Stroke);
+  paint.color(gfx::rgba(0, 0, 0, 255));
+  paint.strokeWidth(3);
+  strokeBrushBoundaries(g, position, paint);
+  paint.color(color);
+  paint.strokeWidth(1);
+  strokeBrushBoundaries(g, position, paint);
 }
 
 // static

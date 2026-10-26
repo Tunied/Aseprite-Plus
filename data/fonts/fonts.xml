@@ -30,6 +30,26 @@
     <fallback font="Unicode Japanese" size="8" />
   </font>
 
+  <!-- Fusion Pixel Font (https://github.com/TakWolf/fusion-pixel-font, OFL-1.1)
+       Pixel bitmap-style TTF with full CJK coverage, so Chinese/Japanese/Korean
+       text renders in the same pixel style and size as the UI fonts.
+       antialias/hinting disabled to keep the bitmap look crisp. -->
+  <font name="Fusion Pixel"
+        type="truetype"
+        file="fusion-pixel-12px-proportional-zh_hans.ttf"
+        antialias="false"
+        hinting="false">
+    <fallback font="Unicode" size="10" />
+  </font>
+
+  <font name="Fusion Pixel Mini"
+        type="truetype"
+        file="fusion-pixel-10px-proportional-zh_hans.ttf"
+        antialias="false"
+        hinting="false">
+    <fallback font="Unicode" size="8" />
+  </font>
+
   <font name="Aseprite"
         type="spritesheet"
         descent="2"

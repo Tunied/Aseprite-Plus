@@ -154,6 +154,7 @@
       <option id="language" type="std::string" default="&quot;en&quot;" />
       <option id="screen_scale" type="int" default="0" />
       <option id="ui_scale" type="int" default="1" />
+      <option id="font_scale" type="int" default="100" />
       <option id="gpu_acceleration" type="bool" default="false" />
       <option id="show_home" type="bool" default="true" />
       <option id="visible_timeline" type="bool" default="false" />
@@ -482,7 +483,6 @@
 
   <tool>
     <option id="opacity" type="int" default="255" />
-    <option id="clone_aligned" type="bool" default="true" />
     <option id="clone_sample" type="int" default="0" />
     <option id="tolerance" type="int" default="0" />
     <option id="contiguous" type="bool" default="true" />

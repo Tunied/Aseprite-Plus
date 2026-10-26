@@ -969,11 +969,11 @@ int Widget::textWidth() const
 int Widget::textHeight() const
 {
   if (auto blob = textBlob())
-    return blob->textHeight();
+    return std::ceil(blob->textHeight());
 
   text::FontMetrics metrics;
   font()->metrics(&metrics);
-  return metrics.descent - metrics.ascent;
+  return std::ceil(metrics.descent - metrics.ascent);
 }
 
 void Widget::getTextIconInfo(gfx::Rect* box,

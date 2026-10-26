@@ -105,7 +105,7 @@ void StandbyState::onActiveToolChange(Editor* editor, tools::Tool* tool)
 {
   // If the user change from a selection tool to a non-selection tool,
   // or viceversa, we've to show or hide the transformation handles.
-  if (editor->document() && (!tool || tool->getId() != "clone_stamp")) editor->document()->cloneStamp().pending = false;
+  if (editor->document() && (!tool || tool->getId() != "clone_stamp")) editor->document()->cloneStamp().cancelSample();
   bool needDecorators = (tool && tool->getInk(0)->isSelection());
   if (m_transformSelectionHandlesAreVisible != needDecorators || !editor->layer() ||
       !editor->layer()->isReference()) {
@@ -132,7 +132,7 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
   // Grid lock is independent of the selection: only this first click picks a cell.
   if (document->gridLock().pending && msg->left()) {
     const auto point = editor->screenToEditor(msg->position()) - editor->mainTilePosition();
-    if (document->gridLock().select(point, editor->docPref().grid.bounds(),
+    if (document->gridLock().select(point, editor->getSite().gridBounds(),
                                     editor->sprite()->bounds()))
       document->notifyGeneralUpdate();
     else
@@ -150,11 +150,14 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
         return true;
       }
       stamp.sample(point, layer->id());
-      editor->invalidate();
+      for (auto* view : context->getAllEditorsIncludingPreview(document)) view->invalidate();
+      editor->showBrushPreview(msg->position());
       return true;
     }
     if (!stamp.valid) {
-      stamp.pending = true;
+      stamp.requestSample(point);
+      editor->invalidate();
+      editor->showBrushPreview(msg->position());
       StatusBar::instance()->showTip(2000, "Clone Stamp: press Y, then click to set the source");
       return true;
     }
@@ -451,6 +454,12 @@ bool StandbyState::onSetCursor(Editor* editor, const gfx::Point& mouseScreenPos)
     editor->showMouseCursor(kCrosshairCursor);
     return true;
   }
+  // Picking is allowed on ordinary source layers even if they are locked for painting.
+  if (editor->getCurrentEditorTool()->getId() == "clone_stamp" &&
+      editor->document()->cloneStamp().pending) {
+    editor->showBrushPreview(mouseScreenPos);
+    return true;
+  }
   tools::Ink* ink = editor->getCurrentEditorInk();
 
   // See if the cursor is in some selection handle.
@@ -528,8 +537,10 @@ bool StandbyState::onKeyDown(Editor* editor, KeyMessage* msg)
     return true;
   }
   if (msg->scancode() == kKeyEsc && editor->document()->cloneStamp().pending) {
-    editor->document()->cloneStamp().pending = false;
-    editor->invalidate();
+    editor->document()->cloneStamp().cancelSample();
+    for (auto* view : UIContext::instance()->getAllEditorsIncludingPreview(editor->document()))
+      view->invalidate();
+    if (editor->hasMouse()) editor->showBrushPreview(editor->mousePosInDisplay());
     return true;
   }
   if (editor->getCurrentEditorTool()->getId() != "clone_stamp" &&

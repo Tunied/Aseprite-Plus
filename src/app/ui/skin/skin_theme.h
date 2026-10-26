@@ -78,6 +78,10 @@ public:
 
   ui::Cursor* getStandardCursor(ui::CursorType type) override;
   void initWidget(ui::Widget* widget) override;
+  void paintWidget(ui::Graphics* g,
+                   const ui::Widget* widget,
+                   const ui::Style* style,
+                   const gfx::Rect& bounds) override;
   void getWindowMask(ui::Widget* widget, gfx::Region& region) override;
   int getScrollbarSize() override;
   gfx::Size getCaretSize(ui::Widget* widget) override;

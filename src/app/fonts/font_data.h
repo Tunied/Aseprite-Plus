@@ -14,6 +14,7 @@
 #include "text/fwd.h"
 
 #include <map>
+#include <tuple>
 
 namespace app {
 
@@ -45,18 +46,20 @@ public:
   // Descent font metrics for sprite sheet fonts
   void setDescent(float descent) { m_descent = descent; }
 
-  text::FontRef getFont(text::FontMgrRef& fontMgr, float size);
+  text::FontRef getFont(text::FontMgrRef& fontMgr, float size, float fallbackScale = 0.0f);
 
 private:
   // Cache of loaded fonts so we avoid re-loading them.
   struct Cache {
     struct Key {
       float size;
+      float fallbackScale;
       bool antialias : 1;
       bool hinting : 1;
       bool operator<(const Key& b) const
       {
-        return size < b.size || antialias < b.antialias || hinting < b.hinting;
+        return std::make_tuple(size, fallbackScale, bool(antialias), bool(hinting)) <
+               std::make_tuple(b.size, b.fallbackScale, bool(b.antialias), bool(b.hinting));
       }
     };
     std::map<Key, text::FontRef> fonts;

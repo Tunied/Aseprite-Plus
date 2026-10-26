@@ -833,9 +833,17 @@ option(OLDKING_BUILD_GRID_LOCK_TESTS "Build grid lock editing integration tests"
 if(OLDKING_BUILD_GRID_LOCK_TESTS AND ENABLE_SCRIPTING)
   add_executable(oldking_grid_lock_tests ui/oldking/tests/grid_lock_tests.cpp)
   target_link_libraries(oldking_grid_lock_tests app-lib ${PLATFORM_LIBS})
+  add_executable(oldking_grid_lock_ui_tests ui/oldking/tests/grid_lock_ui_tests.cpp)
+  target_link_libraries(oldking_grid_lock_ui_tests app-lib ${PLATFORM_LIBS})
 endif()
 
 # Focused OldKing regression runner; no additional test dependency is needed.
+option(OLDKING_BUILD_TYPOGRAPHY_TESTS "Build headless UI typography regression runner" OFF)
+if(OLDKING_BUILD_TYPOGRAPHY_TESTS)
+  add_executable(oldking_typography_tests ui/oldking/tests/typography_tests.cpp)
+  target_link_libraries(oldking_typography_tests app-lib ${PLATFORM_LIBS})
+endif()
+
 option(OLDKING_BUILD_TOOLBAR_TESTS "Build OldKing toolbar regression runner" OFF)
 if(OLDKING_BUILD_TOOLBAR_TESTS)
   add_executable(oldking_toolbar_tests ui/oldking/tests/custom_toolbar_tests.cpp)

@@ -36,8 +36,8 @@ public:
   void addFontData(std::unique_ptr<FontData>&& fontData);
 
   FontData* fontDataByName(const std::string& name);
-  text::FontRef fontByName(const std::string& name, float size);
-  text::FontRef fontFromInfo(const FontInfo& fontInfo);
+  text::FontRef fontByName(const std::string& name, float size, float fallbackScale = 0.0f);
+  text::FontRef fontFromInfo(const FontInfo& fontInfo, float fallbackScale = 0.0f);
 
 private:
   text::FontMgrRef m_fontMgr;

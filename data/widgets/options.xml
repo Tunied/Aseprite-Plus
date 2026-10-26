@@ -68,6 +68,12 @@
               <listitem text="400%" value="4" />
             </combobox>
 
+            <label text="@.font_scaling" for="font_scale" />
+            <hbox>
+              <slider id="font_scale" min="75" max="200" width="128" tooltip="@.font_scaling_tooltip" />
+              <label text="%" />
+            </hbox>
+
             <link text="@.language" url="https://www.aseprite.org/languages/" for="language" />
             <combobox id="language" />
 

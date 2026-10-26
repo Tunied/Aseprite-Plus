@@ -85,12 +85,14 @@ public:
   void discardBrushPreview();
 
   void invalidateRegion(const gfx::Region& region);
+  void drawCloneStampOutline(ui::Graphics* g, const gfx::Point& spritePos, gfx::Color color);
 
 private:
   doc::BrushRef getCurrentBrush();
   static doc::color_t getBrushColor(doc::Sprite* sprite, doc::Layer* layer);
 
   bool createUILayer(const gfx::Rect& brushBounds);
+  bool isCloneStampSampling() const;
   void createBoundaries(const Site& site, const gfx::Point& spritePos);
 
   // Creates a little native cursor to draw the CROSSHAIR
@@ -127,7 +129,7 @@ private:
 
   // Information about current brush
   doc::MaskBoundaries m_brushBoundaries;
-  int m_brushGen;
+  int m_brushGen = 0;
 
   gfx::Region m_clippingRegion;
 
@@ -137,7 +139,7 @@ private:
   doc::frame_t m_lastFrame;
 
   doc::Layer* m_lastLayer = nullptr;
-  TilemapMode m_lastTilemapMode;
+  TilemapMode m_lastTilemapMode = TilemapMode::Pixels;
 
   ExtraCelRef m_extraCel;
 };

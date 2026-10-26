@@ -36,16 +36,19 @@ FontData::FontData(const text::FontRef& nativeFont)
 {
 }
 
-text::FontRef FontData::getFont(text::FontMgrRef& fontMgr, float size)
+text::FontRef FontData::getFont(text::FontMgrRef& fontMgr, float size, float fallbackScale)
 {
   ASSERT(fontMgr);
 
   if (size == 0.0f && m_size != 0.0f)
     size = m_size;
+  if (fallbackScale <= 0.0f)
+    fallbackScale = ui::guiscale();
 
 #if USE_CACHE
   // Use cached fonts
-  const Cache::Key cacheKey{ size, m_antialias, m_hinting != text::FontHinting::None };
+  const Cache::Key cacheKey{ size, fallbackScale, m_antialias,
+                             m_hinting != text::FontHinting::None };
   auto it = m_cache.fonts.find(cacheKey);
   if (it != m_cache.fonts.end()) // Cache hit
     return it->second;
@@ -89,7 +92,9 @@ text::FontRef FontData::getFont(text::FontMgrRef& fontMgr, float size)
 
   // Load fallback
   if (m_fallback) {
-    text::FontRef fallback = m_fallback->getFont(fontMgr, m_fallbackSize * ui::guiscale());
+    text::FontRef fallback = m_fallback->getFont(fontMgr,
+                                                m_fallbackSize * fallbackScale,
+                                                fallbackScale);
     if (font)
       font->setFallback(fallback);
     else

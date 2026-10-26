@@ -52,15 +52,15 @@ FontData* Fonts::fontDataByName(const std::string& name)
   return it->second.get();
 }
 
-text::FontRef Fonts::fontByName(const std::string& name, const float size)
+text::FontRef Fonts::fontByName(const std::string& name, const float size, float fallbackScale)
 {
   auto it = m_fonts.find(name);
   if (it == m_fonts.end())
     return nullptr;
-  return it->second->getFont(m_fontMgr, size);
+  return it->second->getFont(m_fontMgr, size, fallbackScale);
 }
 
-text::FontRef Fonts::fontFromInfo(const FontInfo& fontInfo)
+text::FontRef Fonts::fontFromInfo(const FontInfo& fontInfo, float fallbackScale)
 {
   ASSERT(m_fontMgr);
   if (!m_fontMgr)
@@ -80,7 +80,7 @@ text::FontRef Fonts::fontFromInfo(const FontInfo& fontInfo)
   }
   else {
     const float size = (fontInfo.useDefaultSize() ? 0.0f : fontInfo.size());
-    font = fontByName(fontInfo.name(), size);
+    font = fontByName(fontInfo.name(), size, fallbackScale);
 
     if (!font && fontInfo.type() == FontInfo::Type::File) {
       font = m_fontMgr->loadTrueTypeFont(fontInfo.name().c_str(), size);
