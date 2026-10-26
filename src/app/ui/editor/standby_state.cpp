@@ -144,9 +144,9 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
     auto& stamp = document->cloneStamp();
     const auto point = (editor->screenToEditor(msg->position()) - editor->mainTilePosition());
     if (stamp.pending) {
-      if (!layer || !layer->isImage() || layer->isTilemap() || layer->isReference() ||
+      if (!layer || !layer->isImage() || layer->isReference() ||
           !editor->sprite()->bounds().contains(point)) {
-        StatusBar::instance()->showTip(2000, "Clone Stamp: sample inside an ordinary image layer");
+        StatusBar::instance()->showTip(2000, "Clone Stamp: sample inside an image or tilemap layer");
         return true;
       }
       stamp.sample(point, layer->id());
@@ -161,8 +161,8 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
       StatusBar::instance()->showTip(2000, "Clone Stamp: press Y, then click to set the source");
       return true;
     }
-    if (!layer || !layer->isImage() || layer->isTilemap() || layer->isReference()) {
-      StatusBar::instance()->showTip(2000, "Clone Stamp requires an ordinary image destination layer");
+    if (!layer || !layer->isImage() || layer->isReference()) {
+      StatusBar::instance()->showTip(2000, "Clone Stamp requires an image or tilemap destination layer");
       return true;
     }
     // Ink starts the stroke after snapping/controller processing.

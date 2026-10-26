@@ -191,7 +191,7 @@ void BrushPreview::show(const gfx::Point& screenPos)
 
   // Get current tilemap mode
   const bool cloneSampling = isCloneStampSampling();
-  const TilemapMode tilemapMode = cloneSampling ? TilemapMode::Pixels : site.tilemapMode();
+  const TilemapMode tilemapMode = isClone ? TilemapMode::Pixels : site.tilemapMode();
 
   gfx::Rect origBrushBounds;
   if (isFloodfill && brush->type() != BrushType::kImageBrushType)
@@ -919,7 +919,8 @@ void BrushPreview::drawCloneStampOutline(ui::Graphics* g,
                                         const gfx::Point& spritePos,
                                         gfx::Color color)
 {
-  const Site site = m_editor->getSite();
+  Site site = m_editor->getSite();
+  site.tilemapMode(TilemapMode::Pixels);
   createBoundaries(site, spritePos);
   m_lastLayer = site.layer();
   m_lastTilemapMode = site.tilemapMode();

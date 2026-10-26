@@ -9,6 +9,7 @@
 #include "app/doc.h"
 #include "app/docs.h"
 #include "app/doc_undo.h"
+#include "app/file/file.h"
 #include "app/pref/preferences.h"
 #include "app/site.h"
 #include "app/static_editing.h"
@@ -21,13 +22,17 @@
 #include "doc/image.h"
 #include "doc/image_spec.h"
 #include "doc/layer.h"
+#include "doc/layer_tilemap.h"
 #include "doc/mask.h"
 #include "doc/palette.h"
+#include "doc/primitives.h"
 #include "doc/sprite.h"
+#include "doc/tilesets.h"
 #include "os/system.h"
 #include "render/rasterize.h"
 
 #include <iostream>
+#include <cstdlib>
 #include <stdexcept>
 
 using namespace app;
@@ -54,9 +59,13 @@ LayerImage* layer(Sprite* sprite, const ImageRef& image = {}, gfx::Point pos = {
   return result;
 }
 void stroke(Context* ctx, Doc* doc, LayerImage* target,
-            gfx::Point start, gfx::Point end, int opacity = 255, bool cancel = false, int size = 1) {
+            gfx::Point start, gfx::Point end, int opacity = 255, bool cancel = false, int size = 1,
+            TilesetMode tilesetMode = TilesetMode::Manual) {
   auto* tool = App::instance()->toolBox()->getToolById("clone_stamp");
   Site site; site.document(doc); site.sprite(doc->sprite()); site.layer(target);
+  site.tilesetMode(tilesetMode);
+  // Exercise the same whole-tile color-bar mode that the UI can supply.
+  if (target->isTilemap()) site.tilemapMode(TilemapMode::Tiles);
   ToolLoopParams params;
   params.tool = tool; params.ink = tool->getInk(0); params.controller = tool->getController(0);
   params.brush = BrushRef(new Brush(kSquareBrushType, size, 0));
@@ -64,6 +73,7 @@ void stroke(Context* ctx, Doc* doc, LayerImage* target,
   params.fg = Color::fromRgb(255,255,255); params.bg = Color::fromRgb(0,0,0);
   std::unique_ptr<ToolLoop> loop(create_tool_loop_for_script(ctx, site, params));
   check(bool(loop), "tool-loop creation");
+  if (target->isTilemap()) check(!loop->isTilemapMode(), "clone always paints pixels on tilemaps");
   ToolLoopManager manager(loop.get());
   Pointer p(start, {}, Pointer::Left, Pointer::Type::Mouse, 1.0f);
   manager.prepareLoop(p); manager.pressButton(p);
@@ -71,6 +81,146 @@ void stroke(Context* ctx, Doc* doc, LayerImage* target,
   manager.movement(last); manager.releaseButton(last);
   if (cancel) manager.cancel();
   manager.end();
+}
+
+ImageRef rendered(LayerImage* layer) {
+  return ImageRef(render::rasterize_with_sprite_bounds(layer->cel(0)));
+}
+
+void testTilemaps(Context* context) {
+  for (auto format : {IMAGE_RGB, IMAGE_GRAYSCALE, IMAGE_INDEXED}) {
+    for (auto mode : {TilesetMode::Manual, TilesetMode::Auto, TilesetMode::Stack}) {
+      auto* sprite = new Sprite(ImageSpec(format == IMAGE_RGB ? ColorMode::RGB :
+        (format == IMAGE_GRAYSCALE ? ColorMode::GRAYSCALE : ColorMode::INDEXED), 16, 10));
+      auto* document = new Doc(sprite);
+      context->documents().add(document); context->setActiveDocument(document);
+      const color_t a = format == IMAGE_RGB ? rgba(255,0,0,255) :
+        (format == IMAGE_GRAYSCALE ? graya(80,255) : 1);
+      const color_t b = format == IMAGE_RGB ? rgba(0,255,0,255) :
+        (format == IMAGE_GRAYSCALE ? graya(160,255) : 2);
+      const color_t c = format == IMAGE_RGB ? rgba(0,0,255,255) :
+        (format == IMAGE_GRAYSCALE ? graya(240,255) : 3);
+      auto* tileset = new Tileset(sprite, Grid(gfx::Size(2,2)), 3);
+      ImageRef pattern(Image::create(format,2,2)); pattern->clear(a);
+      pattern->putPixel(1,0,b); pattern->putPixel(0,1,c);
+      ImageRef solid(Image::create(format,2,2)); solid->clear(c);
+      tileset->set(1,pattern); tileset->set(2,solid);
+      auto* tileLayer = new LayerTilemap(sprite,sprite->tilesets()->add(tileset));
+      sprite->root()->addLayer(tileLayer);
+      ImageRef map(Image::create(IMAGE_TILEMAP,4,2)); map->clear(notile);
+      map->putPixel(0,0,tile(1,0)); map->putPixel(1,0,tile(1,tile_f_xflip));
+      map->putPixel(2,0,tile(2,0)); map->putPixel(3,0,tile(2,0));
+      map->putPixel(0,1,tile(1,tile_f_yflip)); map->putPixel(1,1,tile(1,tile_f_dflip));
+      auto* cel = new Cel(0,map); cel->setPosition({1,1}); tileLayer->addCel(cel);
+      context->setActiveLayer(tileLayer);
+      auto& stamp = document->cloneStamp();
+      stamp.sample({3,1},tileLayer->id());
+      const auto before = cloneStampSnapshot(document,0);
+      check(before && before->pixelFormat() == format && before->getPixel(3,1) == b &&
+            before->getPixel(1,3) == c && before->getPixel(3,4) == b,
+            "tile source rasterizes flips and offset in sprite pixel coordinates");
+      for (int sampleMode : {1,2}) {
+        const auto composite = cloneStampSnapshot(document,sampleMode);
+        check(composite && composite->getPixel(3,1) == b,
+              "visible-layer sampling includes tilemap pixels");
+      }
+      auto* imageTarget = layer(sprite);
+      stroke(context,document,imageTarget,{10,6},{10,6});
+      check(pixel(imageTarget,10,6) == b, "tilemap source can clone into ordinary empty layer");
+      stamp.sample({3,1},tileLayer->id());
+      stroke(context,document,tileLayer,{5,1},{5,1},255,false,1,mode);
+      auto after = rendered(tileLayer);
+      check(after->getPixel(5,1) == b && after->getPixel(6,1) == c,
+            "tilemap destination changes only the brushed pixel");
+      check(after->getPixel(7,1) == (mode == TilesetMode::Manual ? b : c),
+            "Manual updates shared tile; Auto/Stack keep other tile instances intact");
+      check(tileLayer->isTilemap() && tileLayer->cel(0)->image()->pixelFormat() == IMAGE_TILEMAP,
+            "clone keeps native tilemap layer and tile IDs");
+      document->undoHistory()->undo();
+      check(count_diff_between_images(rendered(tileLayer).get(),before.get()) == 0 &&
+            tileset->size() == 3, "undo restores tilemap pixels and tileset");
+      document->undoHistory()->redo();
+      check(count_diff_between_images(rendered(tileLayer).get(),after.get()) == 0,
+            "redo restores tilemap stroke");
+      stamp.sample({10,6},imageTarget->id());
+      stroke(context,document,tileLayer,{5,2},{5,2},255,true,1,mode);
+      check(count_diff_between_images(rendered(tileLayer).get(),after.get()) == 0,
+            "cancel restores tilemap without partial tile edits");
+      // Ordinary source to a tilemap, with a brush crossing the selection edge.
+      document->mask()->replace(gfx::Rect(5,2,1,1)); document->setMaskVisible(true);
+      stamp.sample({10,6},imageTarget->id());
+      stroke(context,document,tileLayer,{5,2},{5,2},128,false,3,mode);
+      auto masked = rendered(tileLayer);
+      check(masked->getPixel(5,2) != after->getPixel(5,2) &&
+            masked->getPixel(6,2) == after->getPixel(6,2) &&
+            masked->getPixel(5,1) == after->getPixel(5,1),
+            "ordinary source paints tilemap with opacity and selection clipping");
+      document->setMaskVisible(false);
+      // Empty target cel must be created by the native tilemap pixel pipeline.
+      if (mode != TilesetMode::Manual) {
+        auto* empty = new LayerTilemap(sprite,tileLayer->tilesetIndex());
+        sprite->root()->addLayer(empty);
+        stamp.sample({10,6},imageTarget->id());
+        stroke(context,document,empty,{12,7},{12,7},255,false,1,mode);
+        check(empty->cel(0) && empty->cel(0)->image()->pixelFormat() == IMAGE_TILEMAP &&
+              rendered(empty)->getPixel(12,7) == b,"clone creates an empty tilemap target cel");
+        document->undoHistory()->undo();
+        check(!empty->cel(0),"undo removes newly created tilemap cel");
+      }
+    }
+  }
+}
+
+void testTilemapFile(Context* context, const char* filename) {
+  auto* document = load_document(context,filename);
+  check(document != nullptr,"load supplied tilemap file");
+  context->setActiveDocument(document);
+  LayerTilemap* target = nullptr;
+  for (auto* candidate : document->sprite()->allLayers()) {
+    if (candidate->isTilemap() && candidate->cel(0)) {
+      target = static_cast<LayerTilemap*>(candidate); break;
+    }
+  }
+  check(target != nullptr,"supplied file contains tilemap layer");
+  context->setActiveLayer(target);
+  const auto before = rendered(target);
+  check(before->pixelFormat() == IMAGE_RGB,"supplied fixture uses RGBA pixels");
+  gfx::Point source, destination;
+  bool foundSource = false, foundDestination = false;
+  for (int y = 0; y < before->height() && !foundDestination; ++y) {
+    for (int x = 0; x < before->width(); ++x) {
+      const auto value = before->getPixel(x,y);
+      if (!foundSource && rgba_geta(value) == 255) { source = {x,y}; foundSource = true; }
+      else if (foundSource && value != before->getPixel(source.x,source.y)) {
+        destination = {x,y}; foundDestination = true; break;
+      }
+    }
+  }
+  check(foundSource && foundDestination,"find distinct source/destination in supplied tilemap");
+  const auto count = target->tileset()->size();
+  document->cloneStamp().sample(source,target->id());
+  stroke(context,document,target,destination,destination,255,false,1,TilesetMode::Auto);
+  const auto after = rendered(target);
+  check(after->getPixel(destination.x,destination.y) == before->getPixel(source.x,source.y) &&
+        count_diff_between_images(before.get(),after.get()) == 1,
+        "supplied file clones exactly one pixel while retaining tilemap structure");
+  document->undoHistory()->undo();
+  check(count_diff_between_images(rendered(target).get(),before.get()) == 0 &&
+        target->tileset()->size() == count,"supplied file undo restores pixels and tile count");
+  document->undoHistory()->redo();
+  check(count_diff_between_images(rendered(target).get(),after.get()) == 0,
+        "supplied file redo restores cloned pixel");
+  const auto* folder = std::getenv("ASEPRITE_USER_FOLDER");
+  check(folder != nullptr,"round-trip requires isolated test folder");
+  document->setFilename(std::string(folder) + "/clone-tilemap-roundtrip.aseprite");
+  check(save_document(context,document) == 0,"save cloned tilemap to test copy");
+  auto* reloaded = load_document(context,document->filename());
+  check(reloaded != nullptr,"reload cloned tilemap test copy");
+  auto* reloadedLayer = static_cast<LayerImage*>(reloaded->sprite()->root()->firstLayer());
+  check(reloadedLayer && reloadedLayer->isTilemap() &&
+        count_diff_between_images(rendered(reloadedLayer).get(),after.get()) == 0,
+        "tilemap pixels survive aseprite save/reload");
+  std::cout << "Supplied tilemap file: clone/undo/redo/save/reload passed\n";
 }
 int app_main(int argc, char** argv) {
   try {
@@ -213,6 +363,8 @@ int app_main(int argc, char** argv) {
         check(pixel(dst,2,1)==5,"opaque background reserved index maps to an opaque target index");
       }
     }
+    testTilemaps(context);
+    if (argc > 1) testTilemapFile(context,argv[1]);
     std::cout << "Clone stamp integration: " << checks << " checks passed\n";
     return 0;
   } catch (const std::exception& e) { std::cerr << "FAILED: " << e.what() << '\n'; return 1; }

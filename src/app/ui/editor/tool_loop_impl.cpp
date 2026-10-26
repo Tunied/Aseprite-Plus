@@ -883,6 +883,15 @@ public:
 //////////////////////////////////////////////////////////////////////
 // For user UI painting
 
+// Clone copies rendered pixels, even when the color bar selects whole tiles.
+// Keep the user's TilesetMode so native Manual/Auto/Stack editing and undo
+// still determine how pixel changes are written back into the tileset.
+static void configure_clone_stamp_site(Site& site, const ToolLoopParams& params)
+{
+  if (params.tool && params.tool->getId() == "clone_stamp")
+    site.tilemapMode(TilemapMode::Pixels);
+}
+
 // TODO add inks for tilemaps
 static void adjust_ink_for_tilemaps(const Site& site, ToolLoopParams& params)
 {
@@ -898,7 +907,6 @@ tools::ToolLoop* create_tool_loop(Editor* editor,
                                   const bool selectTiles)
 {
   Site site = editor->getSite();
-  doc::Grid grid = site.grid();
 
   // If the document is read-only.
   if (site.document()->isReadOnly()) {
@@ -909,6 +917,8 @@ tools::ToolLoop* create_tool_loop(Editor* editor,
   ToolLoopParams params;
   params.tool = editor->getCurrentEditorTool();
   params.ink = editor->getCurrentEditorInk();
+  configure_clone_stamp_site(site, params);
+  doc::Grid grid = site.grid();
 
   if (site.tilemapMode() == TilemapMode::Tiles) {
     adjust_ink_for_tilemaps(site, params);
@@ -1043,6 +1053,7 @@ tools::ToolLoop* create_tool_loop_for_script(Context* context,
       Preferences::instance().resetToolPreferences(params.tool);
 
     Site site2(site);
+    configure_clone_stamp_site(site2, params);
     return new ToolLoopImpl(nullptr, site2, site2.grid(), context, params, false);
   }
   catch (const std::exception& ex) {
@@ -1134,6 +1145,7 @@ tools::ToolLoop* create_tool_loop_preview(Editor* editor,
   ToolLoopParams params;
   params.tool = editor->getCurrentEditorTool();
   params.ink = editor->getCurrentEditorInk();
+  configure_clone_stamp_site(site, params);
 
   if (site.tilemapMode() == TilemapMode::Tiles && image->pixelFormat() == IMAGE_TILEMAP) {
     adjust_ink_for_tilemaps(site, params);

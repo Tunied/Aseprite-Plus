@@ -45,7 +45,7 @@ doc::ImageRef cloneStampSnapshot(Doc* document, int sampleMode)
     else if (!found) below.insert(layer);
   };
   visit(sprite->root());
-  if (!state.valid || !source || !source->isImage() || source->isTilemap() || source->isReference()) {
+  if (!state.valid || !source || !source->isImage() || source->isReference()) {
     state.valid = state.offsetValid = false;
     return {};
   }
