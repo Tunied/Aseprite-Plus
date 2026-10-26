@@ -35,7 +35,7 @@
 
 ## 构建与回归
 - 普通构建：`ninja -C build aseprite`（或双击父目录 `../一键编译Aseprite.command`）。
-- 产物：`build/bin/Aseprite Plus.app`；安装后为 `/Applications/Aseprite Plus.app`。
+- 产物：`build/bin/macos.noindex/Aseprite Plus.app`；唯一正式安装路径为 `/Applications/Aseprite Plus.app`，覆盖安装、不保留旧 App。安装入口和搜索去重规则见 Overview。
   `build/bin/aseprite` 是 bundle 中可执行文件的符号链接。
 - `OLDKING_BUILD_TOOLBAR_TESTS` 是默认 OFF 的局部 CMake 开关；启用后编译 `oldking_toolbar_tests`，无需新增测试依赖。
 - 测试前建立独立 `ASEPRITE_USER_FOLDER`，复制实际已安装四插件及 Super Menu；禁止直接用真实用户目录执行测试，因为测试会增加临时快捷键并调整布局。

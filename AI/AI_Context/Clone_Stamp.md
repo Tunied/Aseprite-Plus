@@ -18,7 +18,7 @@
 - 取样栅格化为 Sprite 像素，包含 Tile 翻转和 Cel 位置；支持 Tilemap 与普通层之间互相取样、绘制，取样范围设置照常生效。
 - 图章始终使用像素模式与像素笔刷轮廓，即使颜色栏当前为整 Tile 模式；不更改用户的颜色栏模式，不把图章替换为整 Tile 画笔。
 - 写回沿用 `ExpandCelCanvas` 原生 Tilemap 像素编辑与事务，保留图层类型，仍以 Tile ID 引用 Tileset。遵循当前 Tileset 编辑模式：Manual 修改共享 Tile，其他引用同步变化；Auto/Stack 按原生规则生成或匹配 Tile。Manual 不向空 Tile 创建新 Tile。
-- 原生目标选区、不透明度、撤销/重做与取消有效；单格锁定仍不开放 Tilemap 目标绘制，见 `Grid_Lock.md`。
+- 原生目标选区、不透明度、撤销/重做与取消有效。开启 LockGrid 后可从格外取样，目标只写入锁定格与用户选区的交集；Tilemap 目标在 Manual 下仅本次笔画改用 Auto，避免共享 Tile 修改传播到格外，不改颜色栏设置。详见 `Grid_Lock.md`。
 
 ## 实现入口
 - `src/app/tools/clone_stamp.h/.cpp`：瞬时文档状态、取样快照、图章 Ink；`Doc::cloneStamp()` 持有状态，文档关闭时释放，不写入工程或撤销历史。
@@ -32,7 +32,7 @@
 
 ## 长期约束
 - 必须在 `ExpandCelCanvas` 临时重定位目标 Cel 之前获取独立源快照，否则同层取样会错位。每笔重新取样，单笔源图不随目标写入变化。
-- UI、脚本和预览的 ToolLoop 创建入口必须先将图章的 Site 设置为 Pixels，再处理 Tilemap Ink 替换和画布扩展；否则整 Tile 模式会丢失图章 Ink 或把 Tile ID 当像素。
+- UI、脚本和预览的 ToolLoop 创建入口必须先将图章的 Site 设置为 Pixels，并在 Tilemap 格锁定时隔离 Manual 的共享 Tile，再处理 Tilemap Ink 替换和画布扩展；否则整 Tile 模式会丢失图章 Ink 或把 Tile ID 当像素。
 - 不透明度从该笔开始前的目标源画布合成，不因一笔中重复覆盖而变成独立流量累积。
 - Y 取样在确认 source 时初始化源/目标偏移；未提供 Y 目标点或需要重置偏移时，以笔画控制器处理后的首点初始化。红绿标记依据实际像素偏移更新。
 - 源/目标坐标以 Sprite 坐标统一；写入时转换目标画布局部坐标，选区判断使用 Sprite 坐标。

@@ -884,12 +884,17 @@ public:
 // For user UI painting
 
 // Clone copies rendered pixels, even when the color bar selects whole tiles.
-// Keep the user's TilesetMode so native Manual/Auto/Stack editing and undo
-// still determine how pixel changes are written back into the tileset.
+// Keep native tileset editing except when Manual would change shared tiles
+// outside the locked grid. In that case isolate the changed tile via Auto,
+// without changing the user's color-bar preferences.
 static void configure_clone_stamp_site(Site& site, const ToolLoopParams& params)
 {
-  if (params.tool && params.tool->getId() == "clone_stamp")
+  if (params.tool && params.tool->getId() == "clone_stamp") {
     site.tilemapMode(TilemapMode::Pixels);
+    if (site.layer() && site.layer()->isTilemap() && site.document()->gridLock().locked() &&
+        site.tilesetMode() == TilesetMode::Manual)
+      site.tilesetMode(TilesetMode::Auto);
+  }
 }
 
 // TODO add inks for tilemaps

@@ -37,7 +37,8 @@
 ## 协作与构建
 - README 只介绍本工具独有特性，每次功能更新直接修正为最终行为，不积累版本或时间线；每次完成更新必须同步 README 并提交、推送 GitHub。
 - 用户授权 AI 自行维护本仓库 Git：完成修改和相应验证后，提交并推送应版本管理的代码、资源、测试及 Context；不要积压已完成的未提交修改。构建目录和临时运行日志不上传。
-- 双击父目录 `../一键编译Aseprite.command`：编译并直接安装到 `/Applications/Aseprite Plus.app`（同名替换）。
+- 双击父目录 `../一键编译Aseprite.command`：编译后调用 `misc/install_macos.sh`，固定覆盖 `/Applications/Aseprite Plus.app`；不创建旧版 App 备份，不挪入废纸篓。安装器清理本项目旧构建路径及备份 App，并只登记正式安装路径。
+- macOS 构建产物在 `build/bin/macos.noindex/Aseprite Plus.app`，不参与 Spotlight/应用搜索；不要把构建副本注册到 LaunchServices，也不要创建 `build/app-backups`。`build/bin/aseprite` 仍可用于命令行运行。
 - 也可以直接用 `ninja -C build aseprite`。
 - 上游同步：`git fetch upstream` 后 merge/rebase，再 `git submodule update --init --recursive`；
   重编译前建议先看一眼 build 目录是否需要 `--clean`（上游常更新 laf）。

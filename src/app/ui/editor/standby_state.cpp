@@ -169,7 +169,8 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
   }
 
   if (document->gridLock().locked() && layer &&
-      (layer->isTilemap() || layer->isReference()) &&
+      (layer->isReference() ||
+       (layer->isTilemap() && editor->getCurrentEditorTool()->getId() != "clone_stamp")) &&
       clickedInk && !clickedInk->isSelection() && !clickedInk->isEyedropper() &&
       !clickedInk->isScrollMovement() && !clickedInk->isZoom()) {
     StatusBar::instance()->showTip(2500, "Lock Gird: select an ordinary image layer");

@@ -167,6 +167,42 @@ void testTilemaps(Context* context) {
         document->undoHistory()->undo();
         check(!empty->cel(0),"undo removes newly created tilemap cel");
       }
+      // A smaller, unaligned grid must also isolate Manual's shared tiles.
+      const auto unlocked = rendered(tileLayer);
+      const auto unlockedCount = tileset->size();
+      document->gridLock().request();
+      check(document->gridLock().select({5,1},{5,1,1,2},sprite->bounds()),
+            "lock a grid that covers only part of a tile");
+      document->mask()->replace(gfx::Rect(5,1,1,1)); document->setMaskVisible(true);
+      stamp.requestSample(gfx::Point(5,1)); stamp.sample({1,1},tileLayer->id());
+      stroke(context,document,tileLayer,{5,1},{6,2},255,false,5,mode);
+      const auto locked = rendered(tileLayer);
+      check(locked->getPixel(5,1) == a &&
+            count_diff_between_images(unlocked.get(),locked.get()) == 1,
+            "locked tilemap clones from outside grid, intersects selection, isolates shared tiles");
+      check(!document->cloneStamp().pending && document->isMaskVisible() &&
+            document->mask()->bounds() == gfx::Rect(5,1,1,1),
+            "locked clone preserves source confirmation and user selection");
+      document->undoHistory()->undo();
+      check(count_diff_between_images(rendered(tileLayer).get(),unlocked.get()) == 0 &&
+            tileset->size() == unlockedCount,"locked tilemap undo restores pixels and tileset");
+      // Undo/redo must use the captured stroke, independently of the later lock.
+      document->gridLock().reset();
+      document->undoHistory()->redo();
+      check(count_diff_between_images(rendered(tileLayer).get(),locked.get()) == 0,
+            "locked tilemap redo is independent of later grid state");
+      document->gridLock().request();
+      document->gridLock().select({5,1},{5,1,1,2},sprite->bounds());
+      document->setMaskVisible(false);
+      stamp.sample({1,1},tileLayer->id());
+      stroke(context,document,tileLayer,{8,4},{8,4},255,false,1,mode);
+      check(count_diff_between_images(rendered(tileLayer).get(),locked.get()) == 0,
+            "locked tilemap ignores brush completely outside grid");
+      stamp.sample({1,1},tileLayer->id());
+      stroke(context,document,tileLayer,{5,2},{5,2},255,true,5,mode);
+      check(count_diff_between_images(rendered(tileLayer).get(),locked.get()) == 0,
+            "cancel locked tilemap stroke restores all pixels");
+      document->gridLock().reset();
     }
   }
 }
@@ -198,12 +234,16 @@ void testTilemapFile(Context* context, const char* filename) {
   }
   check(foundSource && foundDestination,"find distinct source/destination in supplied tilemap");
   const auto count = target->tileset()->size();
+  document->gridLock().request();
+  check(document->gridLock().select(destination,
+        gfx::Rect(destination.x,destination.y,1,1),document->sprite()->bounds()),
+        "lock destination pixel in supplied tilemap");
   document->cloneStamp().sample(source,target->id());
-  stroke(context,document,target,destination,destination,255,false,1,TilesetMode::Auto);
+  stroke(context,document,target,destination,destination,255,false,5,TilesetMode::Manual);
   const auto after = rendered(target);
   check(after->getPixel(destination.x,destination.y) == before->getPixel(source.x,source.y) &&
         count_diff_between_images(before.get(),after.get()) == 1,
-        "supplied file clones exactly one pixel while retaining tilemap structure");
+        "supplied file with LockGrid clones only locked pixel even with Manual and oversized brush");
   document->undoHistory()->undo();
   check(count_diff_between_images(rendered(target).get(),before.get()) == 0 &&
         target->tileset()->size() == count,"supplied file undo restores pixels and tile count");
