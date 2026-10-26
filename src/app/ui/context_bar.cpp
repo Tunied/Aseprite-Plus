@@ -2241,7 +2241,14 @@ void ContextBar::onToolSetContiguous()
 
 void ContextBar::onActiveSiteChange(const Site& site)
 {
+  const bool hadDoc = (doc() != nullptr);
   DocObserverWidget<ui::HBox>::onActiveSiteChange(site);
+  // The base detaches from the old document when the active site becomes
+  // empty, but only calls onDocChange() when attaching to a new document.
+  // Disconnect document preference signals before that document is closed
+  // and its preferences (and their slots) are destroyed.
+  if (hadDoc && !doc())
+    onDocChange(nullptr);
   if (m_sliceFields->isVisible())
     updateSliceFields(site);
 }

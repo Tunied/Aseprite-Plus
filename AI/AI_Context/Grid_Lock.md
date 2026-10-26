@@ -17,6 +17,7 @@
 ## 实现入口
 - `src/app/grid_lock.h`、`Doc::gridLock()`：状态和网格命中。
 - `src/app/ui/context_bar.cpp`：按钮、选格提示和文档网格显示同步。
+- 工具栏在活动文档变为空时必须同步解除文档网格偏好订阅；`DocObserverWidget` 的空站点切换不会调用 `onDocChange(nullptr)`，因此由 `ContextBar::onActiveSiteChange` 补齐。订阅必须在文档偏好销毁前断开。
 - `src/app/ui/editor/standby_state.cpp`、`editor.cpp`：选格点击、等待光标和绿色边框。
 - `src/app/ui/editor/tool_loop_impl.cpp`：绘图私有遮罩。
 - `src/app/ui/editor/pixels_movement.cpp`、`src/app/util/expand_cel_canvas.cpp`：浮动预览与最终写入裁剪；复制/变换源保持完整。
@@ -26,5 +27,6 @@
 ## 验证入口
 - `OLDKING_BUILD_GRID_LOCK_TESTS=ON` 构建 `oldking_grid_lock_tests`；`misc/test_grid_lock.sh` 使用隔离偏好目录执行真实绘图/浮动选区事务。
 - 同一构建选项生成 `oldking_grid_lock_ui_tests`；`misc/test_grid_lock_ui.sh` 用隔离偏好目录验证实际按钮回调、原生编辑器状态和网格重绘，覆盖空网格配置、菜单同步及浮动选区结束。仅在改动此激活路径时运行，可能短暂打开测试窗口。
+- 同一选项生成 `oldking_context_bar_lifecycle_tests`；`sh misc/test_context_bar_lifecycle.sh` 使用无原生窗口的真实工具栏和隔离偏好目录，验证文档切换、空活动站点、文档先于工具栏销毁，以及同一偏好目录下的三次进程启动。
 - `Editor::dropMovingPixels()` 仅能在 `isMovingPixels()` 为真时调用；普通待机状态不能弹栈。选格使用 `Site::gridBounds()`，与渲染的默认网格回退一致。
 - GUI 布局、图标、选格和方向键的实际操作体验由用户最终验收。
