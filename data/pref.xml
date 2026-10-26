@@ -191,6 +191,7 @@
       <option id="invert_brush_size_wheel" type="bool" default="false" />
       <option id="show_scrollbars" type="bool" default="true" />
       <option id="auto_scroll" type="bool" default="true" />
+      <option id="auto_scroll_speed" type="int" default="25" />
       <option id="right_click_mode" type="RightClickMode" default="RightClickMode::PAINT_BGCOLOR" />
       <option id="auto_select_layer" type="bool" default="false" />
       <option id="auto_select_layer_quick" type="bool" default="true" />
@@ -316,6 +317,7 @@
       <option id="pixel_perfect" type="bool" default="false" />
     </section>
     <section id="selection">
+      <option id="shift_move_step" type="int" default="4" />
       <option id="mode" type="SelectionMode" default="SelectionMode::DEFAULT" />
       <option id="move_edges" type="bool" default="true" />
       <option id="modifiers_disable_handles" type="bool" default="true" />

@@ -1670,8 +1670,10 @@ void Editor::flashCurrentLayer()
 gfx::Point Editor::autoScroll(const ui::MouseMessage* msg, const AutoScroll dir)
 {
   gfx::Point mousePos = msg->position();
-  if (!Preferences::instance().editor.autoScroll())
+  if (!Preferences::instance().editor.autoScroll()) {
+    m_edgeScroll.reset();
     return mousePos;
+  }
 
   // Hide the brush preview
   // HideBrushPreview hide(m_brushPreview);
@@ -1692,7 +1694,7 @@ gfx::Point Editor::autoScroll(const ui::MouseMessage* msg, const AutoScroll dir)
 
     gfx::Point scroll = view->viewScroll();
     if (dir == AutoScroll::MouseDir) {
-      scroll += delta;
+      scroll += m_edgeScroll.scale(delta, Preferences::instance().editor.autoScrollSpeed());
     }
     else {
       scroll -= deltaScroll;
@@ -1706,8 +1708,10 @@ gfx::Point Editor::autoScroll(const ui::MouseMessage* msg, const AutoScroll dir)
     mousePos = gfx::Point(std::clamp(mousePos.x, vp.x, vp.x2() - 1),
                           std::clamp(mousePos.y, vp.y, vp.y2() - 1));
   }
-  else
+  else {
     m_oldPos = mousePos;
+    m_edgeScroll.reset();
+  }
 
   return mousePos;
 }
@@ -2268,6 +2272,7 @@ bool Editor::onProcessMessage(Message* msg)
         }
 
         m_oldPos = mouseMsg->position();
+        m_edgeScroll.reset();
         updateToolByTipProximity(mouseMsg->pointerType());
         updateAutoCelGuides(msg);
 

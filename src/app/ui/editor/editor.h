@@ -17,6 +17,7 @@
 #include "app/tools/tool_loop_modifiers.h"
 #include "app/ui/color_source.h"
 #include "app/ui/editor/brush_preview.h"
+#include "app/ui/editor/edge_scroll.h"
 #include "app/ui/editor/editor_hit.h"
 #include "app/ui/editor/editor_observers.h"
 #include "app/ui/editor/editor_state.h"
@@ -484,6 +485,7 @@ private:
   // current mouse position on the editor you can use
   // ui::Display::lastMousePos().
   gfx::Point m_oldPos;
+  EdgeScroll m_edgeScroll;
 
   EditorFlags m_flags;
 

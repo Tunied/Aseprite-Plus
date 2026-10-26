@@ -13,6 +13,7 @@
 
 #include "app/commands/params.h"
 #include "app/i18n/strings.h"
+#include "app/pref/preferences.h"
 #include "app/ui/doc_view.h"
 #include "app/ui/editor/editor.h"
 #include "app/ui_context.h"
@@ -34,7 +35,9 @@ void MoveThing::onLoadParams(const Params& params)
     direction = Left;
 
   v = params.get("units");
-  if (v == "tile-width")
+  if (v == "selection-step")
+    units = SelectionStep;
+  else if (v == "tile-width")
     units = TileWidth;
   else if (v == "tile-height")
     units = TileHeight;
@@ -61,6 +64,7 @@ std::string MoveThing::getFriendlyString() const
 
   switch (units) {
     case Pixel:            dim = Strings::commands_Move_Pixel(); break;
+    case SelectionStep:    dim = Strings::commands_Move_SelectionStep(); break;
     case TileWidth:        dim = Strings::commands_Move_TileWidth(); break;
     case TileHeight:       dim = Strings::commands_Move_TileHeight(); break;
     case ZoomedPixel:      dim = Strings::commands_Move_ZoomedPixel(); break;
@@ -95,6 +99,9 @@ gfx::Point MoveThing::getDelta(Context* context) const
 
   switch (units) {
     case Pixel:            pixels = 1; break;
+    case SelectionStep:
+      pixels = std::clamp(Preferences::instance().selection.shiftMoveStep(), 2, 64);
+      break;
     case TileWidth:        pixels = gridBounds.w; break;
     case TileHeight:       pixels = gridBounds.h; break;
     case ZoomedPixel:      pixels = editor->zoom().apply(1); break;

@@ -838,6 +838,12 @@ if(OLDKING_BUILD_GRID_LOCK_TESTS AND ENABLE_SCRIPTING)
 endif()
 
 # Focused OldKing regression runner; no additional test dependency is needed.
+option(OLDKING_BUILD_NAVIGATION_TESTS "Build headless editor navigation regression runner" OFF)
+if(OLDKING_BUILD_NAVIGATION_TESTS)
+  add_executable(oldking_navigation_tests ui/oldking/tests/editor_navigation_tests.cpp)
+  target_link_libraries(oldking_navigation_tests app-lib ${PLATFORM_LIBS})
+endif()
+
 option(OLDKING_BUILD_TYPOGRAPHY_TESTS "Build headless UI typography regression runner" OFF)
 if(OLDKING_BUILD_TYPOGRAPHY_TESTS)
   add_executable(oldking_typography_tests ui/oldking/tests/typography_tests.cpp)

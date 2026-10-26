@@ -751,6 +751,8 @@ public:
 
     showScrollbars()->setSelected(m_pref.editor.showScrollbars());
     autoScroll()->setSelected(m_pref.editor.autoScroll());
+    autoScrollSpeed()->setValue(std::clamp(m_pref.editor.autoScrollSpeed(), 1, 100));
+    shiftMoveStep()->setValue(std::clamp(m_pref.selection.shiftMoveStep(), 2, 64));
     straightLinePreview()->setSelected(m_pref.editor.straightLinePreview());
     discardBrush()->setSelected(m_pref.eyedropper.discardBrush());
 
@@ -866,6 +868,8 @@ public:
     m_pref.editor.zoomFromCenterWithKeys(zoomFromCenterWithKeys()->isSelected());
     m_pref.editor.showScrollbars(showScrollbars()->isSelected());
     m_pref.editor.autoScroll(autoScroll()->isSelected());
+    m_pref.editor.autoScrollSpeed(autoScrollSpeed()->getValue());
+    m_pref.selection.shiftMoveStep(shiftMoveStep()->getValue());
     m_pref.editor.straightLinePreview(straightLinePreview()->isSelected());
     m_pref.eyedropper.discardBrush(discardBrush()->isSelected());
     m_pref.editor.rightClickMode(

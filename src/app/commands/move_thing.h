@@ -22,6 +22,7 @@ struct MoveThing {
 
   enum Units {
     Pixel,
+    SelectionStep,
     TileWidth,
     TileHeight,
     ZoomedPixel,

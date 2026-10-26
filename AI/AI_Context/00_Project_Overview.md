@@ -9,6 +9,7 @@
 - 新功能不设计动画/跨帧能力。图章不提供软边硬度或独立流量，入口与规则见 `Clone_Stamp.md`。
 - 静态界面边界见 `Static_Editing_Scope.md`。
 - 界面采用 Fusion Pixel，General 支持独立 Font Size 百分比；字体资源、行度量、缩放及验证入口见 `UI_Typography.md`。
+- 编辑器导航：边缘自动滚动默认原速 25%，Shift+方向键默认移动 4 图像像素，两者可在 Preferences 微调；入口与规则见 `Editor_Navigation.md`。
 - 单格编辑锁定：顶部挂锁按钮、格外选区复制及格内写入裁剪，规则和验证入口见 `Grid_Lock.md`。
 
 ## Remote
@@ -34,6 +35,7 @@
 - `AI/References/Clone_Stamp_Feasibility.md`：原生仿制图章的代码入口、可复用能力与实施边界；当前实现规则见 `AI/AI_Context/Clone_Stamp.md`。
 
 ## 协作与构建
+- README 只介绍本工具独有特性，每次功能更新直接修正为最终行为，不积累版本或时间线；每次完成更新必须同步 README 并提交、推送 GitHub。
 - 用户授权 AI 自行维护本仓库 Git：完成修改和相应验证后，提交并推送应版本管理的代码、资源、测试及 Context；不要积压已完成的未提交修改。构建目录和临时运行日志不上传。
 - 双击父目录 `../一键编译Aseprite.command`：编译并直接安装到 `/Applications/Aseprite Plus.app`（同名替换）。
 - 也可以直接用 `ninja -C build aseprite`。
