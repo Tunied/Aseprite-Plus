@@ -210,6 +210,22 @@ void ExpandCelCanvas::commit()
     return;
   }
 
+  if (m_document->gridLock().locked() && !isSelectionPreview() &&
+      !m_layer->isTilemap() && m_dstImage) {
+    auto allowed = m_document->gridLock().bounds;
+    allowed.offset(-m_bounds.origin());
+    gfx::Region outside;
+    outside.createSubtraction(m_validDstRegion, gfx::Region(allowed));
+    for (const auto& rc : outside) {
+      fill_rect(m_dstImage.get(), rc, m_document->bgColor(m_layer));
+      if (m_celImage)
+        m_dstImage->copy(m_celImage.get(),
+                        gfx::Clip(rc.origin(), rc.origin() + m_bounds.origin() - m_origCelPos,
+                                  rc.size()));
+    }
+    m_validDstRegion.createIntersection(m_validDstRegion, gfx::Region(allowed));
+  }
+
   // Was the cel created in the start of the tool-loop?
   if ((m_celCreated) ||
       // Was the cel without an image when the tool-loop started?

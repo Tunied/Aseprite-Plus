@@ -51,6 +51,8 @@
 #include "app/ui/sampling_selector.h"
 #include "app/ui/selection_mode_field.h"
 #include "app/ui/skin/skin_theme.h"
+#include "app/ui/oldking/grid_lock_icon.h"
+#include "app/ui/status_bar.h"
 #include "app/ui_context.h"
 #include "base/pi.h"
 #include "base/scoped_value.h"
@@ -1468,6 +1470,56 @@ protected:
   }
 };
 
+class ContextBar::GridLockField : public ButtonSet {
+public:
+  GridLockField() : ButtonSet(1)
+  {
+    addItem(skin::SkinPartPtr(new skin::SkinPart));
+    setMultiMode(MultiMode::Set);
+    ItemChange.connect([this](Item*) {
+      auto* doc = UIContext::instance()->activeDocument();
+      if (!doc) return;
+      // Finish a floating selection before changing the editing constraint.
+      if (auto* editor = Editor::activeEditor())
+        editor->dropMovingPixels();
+      auto& lock = doc->gridLock();
+      auto& pref = Preferences::instance().document(doc);
+      if (lock.enabled()) {
+        lock.reset();
+        pref.show.grid(false);
+      }
+      else {
+        lock.request();
+        pref.show.grid(true);
+        StatusBar::instance()->showTip(3000, "选择一个要编辑的网格");
+      }
+      doc->notifyGeneralUpdate();
+      getItem(0)->releaseFocus();
+    });
+    initTheme();
+  }
+
+protected:
+  void onInitTheme(ui::InitThemeEvent& ev) override
+  {
+    ButtonSet::onInitTheme(ev);
+    const int scale = ui::guiscale();
+    auto surface = os::System::instance()->makeRgbaSurface(16 * scale, 16 * scale);
+    surface->clear();
+    const auto color = skin::SkinTheme::get(this)->colors.text();
+    for (int y = 0; y < 16; ++y)
+      for (int x = 0; x < 16; ++x)
+        for (int v = 0; v < scale; ++v)
+          for (int u = 0; u < scale; ++u)
+            surface->putPixel(gfx::rgba(gfx::getr(color), gfx::getg(color), gfx::getb(color),
+                                       oldking::kGridLockIconAlpha[y * 16 + x]),
+                              x * scale + u, y * scale + v);
+    auto part = skin::SkinPartPtr(new skin::SkinPart);
+    part->setBitmap(0, surface);
+    getItem(0)->setIcon(part);
+  }
+};
+
 class ContextBar::SelectionModeField : public app::SelectionModeField {
 public:
   SelectionModeField() {}
@@ -2101,6 +2153,12 @@ ContextBar::ContextBar(TooltipManager* tooltipManager, ColorBar* colorBar)
   m_freehandBox->addChild(m_dynamics = new DynamicsField(this));
   m_freehandBox->addChild(m_freehandAlgo = new FreehandAlgorithmField());
 
+  addChild(m_gridLock = new GridLockField);
+  addChild(m_gridLockHelp = new Label("选择一个要编辑的网格"));
+  m_gridLockHelp->setVisible(false);
+  tooltipManager->addTooltipFor(m_gridLock->getItem(0), "Lock Gird");
+  m_gridLock->setEnabled(false);
+
   addChild(m_symmetry = new SymmetryField());
   m_symmetry->setVisible(pref.symmetryMode.enabled());
 
@@ -2196,6 +2254,36 @@ void ContextBar::onDocChange(Doc* doc)
 {
   DocObserverWidget<ui::HBox>::onDocChange(doc);
   m_sliceFields->setDoc(doc);
+  m_gridVisibleConn.disconnect();
+  m_gridBoundsConn.disconnect();
+  if (doc) {
+    auto& pref = Preferences::instance().document(doc);
+    m_gridVisibleConn = pref.show.grid.AfterChange.connect([doc] {
+      if (!Preferences::instance().document(doc).show.grid())
+        doc->gridLock().reset();
+      doc->notifyGeneralUpdate();
+    });
+    m_gridBoundsConn = pref.grid.bounds.AfterChange.connect([doc] {
+      if (doc->gridLock().enabled()) doc->gridLock().request();
+      doc->notifyGeneralUpdate();
+    });
+  }
+  updateGridLock();
+}
+
+void ContextBar::updateGridLock()
+{
+  auto* document = UIContext::instance()->activeDocument();
+  m_gridLock->setEnabled(document != nullptr);
+  m_gridLock->getItem(0)->setSelected(
+    document && Preferences::instance().document(document).show.grid());
+  m_gridLockHelp->setVisible(document && document->gridLock().pending);
+  layout();
+}
+
+void ContextBar::onGeneralUpdate(DocEvent& ev)
+{
+  updateGridLock();
 }
 
 void ContextBar::onAddSlice(DocEvent& ev)

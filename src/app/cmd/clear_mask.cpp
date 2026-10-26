@@ -31,7 +31,7 @@ ClearMask::ClearMask(Cel* cel) : WithCel(cel)
 
   // If the mask is empty or is not visible then we have to clear the
   // entire image in the cel.
-  if (!doc->isMaskVisible()) {
+  if (!doc->isMaskVisible() && !doc->gridLock().locked()) {
     m_seq.add(new cmd::ClearCel(cel));
 
     // In this case m_copy will be nullptr, so the clear()/restore()
@@ -45,6 +45,16 @@ ClearMask::ClearMask(Cel* cel) : WithCel(cel)
     return;
 
   const Mask* mask = doc->mask();
+  if (doc->gridLock().locked()) {
+    m_effectiveMask.reset(new Mask);
+    if (doc->isMaskVisible()) {
+      m_effectiveMask->copyFrom(mask);
+      m_effectiveMask->intersect(doc->gridLock().bounds);
+    }
+    else
+      m_effectiveMask->replace(doc->gridLock().bounds);
+    mask = m_effectiveMask.get();
+  }
   gfx::Rect imageBounds;
   gfx::Rect maskBounds;
   if (image->pixelFormat() == IMAGE_TILEMAP) {
@@ -94,7 +104,7 @@ void ClearMask::clear()
 
   Cel* cel = this->cel();
   Doc* doc = static_cast<Doc*>(cel->document());
-  Mask* mask = doc->mask();
+  const Mask* mask = m_effectiveMask ? m_effectiveMask.get() : doc->mask();
 
   Grid grid = cel->grid();
   doc::algorithm::fill_selection(cel->image(),

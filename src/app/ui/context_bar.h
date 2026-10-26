@@ -126,11 +126,13 @@ protected:
   void onDocChange(Doc* doc) override;
 
   // DocObserver impl
+  void onGeneralUpdate(DocEvent& ev) override;
   void onAddSlice(DocEvent& ev) override;
   void onRemoveSlice(DocEvent& ev) override;
   void onSliceNameChange(DocEvent& ev) override;
 
 private:
+  void updateGridLock();
   void onBrushSizeChange();
   void onBrushAngleChange();
   void onCornerRadiusChange(int value);
@@ -170,6 +172,7 @@ private:
   class TransformationFields;
   class DynamicsField;
   class FreehandAlgorithmField;
+  class GridLockField;
   class BrushPatternField;
   class CornerRadiusField;
   class EyedropperField;
@@ -202,6 +205,10 @@ private:
   ui::Box* m_freehandBox;
   DynamicsField* m_dynamics;
   FreehandAlgorithmField* m_freehandAlgo;
+  GridLockField* m_gridLock;
+  ui::Label* m_gridLockHelp;
+  obs::scoped_connection m_gridVisibleConn;
+  obs::scoped_connection m_gridBoundsConn;
   BrushPatternField* m_brushPatternField;
   ui::Box* m_sprayBox;
   ui::Label* m_sprayLabel;

@@ -129,6 +129,17 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
   // When an editor is clicked the current view is changed.
   context->setActiveView(editor->getDocView());
 
+  // Grid lock is independent of the selection: only this first click picks a cell.
+  if (document->gridLock().pending && msg->left()) {
+    const auto point = editor->screenToEditor(msg->position()) - editor->mainTilePosition();
+    if (document->gridLock().select(point, editor->docPref().grid.bounds(),
+                                    editor->sprite()->bounds()))
+      document->notifyGeneralUpdate();
+    else
+      StatusBar::instance()->showTip(2000, "选择一个要编辑的网格");
+    return true;
+  }
+
   if (clickedInk && editor->getCurrentEditorTool()->getId() == "clone_stamp" && msg->left()) {
     auto& stamp = document->cloneStamp();
     const auto point = (editor->screenToEditor(msg->position()) - editor->mainTilePosition());
@@ -152,6 +163,14 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
       return true;
     }
     // Ink starts the stroke after snapping/controller processing.
+  }
+
+  if (document->gridLock().locked() && layer &&
+      (layer->isTilemap() || layer->isReference()) &&
+      clickedInk && !clickedInk->isSelection() && !clickedInk->isEyedropper() &&
+      !clickedInk->isScrollMovement() && !clickedInk->isZoom()) {
+    StatusBar::instance()->showTip(2500, "Lock Gird: select an ordinary image layer");
+    return true;
   }
 
   // Move symmetry
@@ -182,6 +201,10 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
 
   // Move cel X,Y coordinates
   if (clickedInk->isCelMovement()) {
+    if (document->gridLock().locked()) {
+      StatusBar::instance()->showTip(2500, "Lock Gird: use M to select and move pixels");
+      return true;
+    }
     // Handle "Auto Select Layer"
     if (editor->isAutoSelectLayer()) {
       gfx::PointF cursor = editor->screenToEditorF(msg->position());
@@ -423,6 +446,11 @@ bool StandbyState::onDoubleClick(Editor* editor, MouseMessage* msg)
 
 bool StandbyState::onSetCursor(Editor* editor, const gfx::Point& mouseScreenPos)
 {
+  if (editor->document()->gridLock().pending) {
+    editor->brushPreview().hide();
+    editor->showMouseCursor(kCrosshairCursor);
+    return true;
+  }
   tools::Ink* ink = editor->getCurrentEditorInk();
 
   // See if the cursor is in some selection handle.
@@ -493,6 +521,12 @@ bool StandbyState::onSetCursor(Editor* editor, const gfx::Point& mouseScreenPos)
 
 bool StandbyState::onKeyDown(Editor* editor, KeyMessage* msg)
 {
+  if (msg->scancode() == kKeyEsc && editor->document()->gridLock().pending) {
+    editor->document()->gridLock().reset();
+    editor->docPref().show.grid(false);
+    editor->document()->notifyGeneralUpdate();
+    return true;
+  }
   if (msg->scancode() == kKeyEsc && editor->document()->cloneStamp().pending) {
     editor->document()->cloneStamp().pending = false;
     editor->invalidate();

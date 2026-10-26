@@ -14,6 +14,7 @@
 #include "app/cmd/with_image.h"
 #include "app/cmd_sequence.h"
 #include "doc/image_ref.h"
+#include "doc/mask.h"
 #include "gfx/rect.h"
 
 #include <memory>
@@ -32,7 +33,8 @@ protected:
   void onRedo() override;
   size_t onMemSize() const override
   {
-    return sizeof(*this) + m_seq.memSize() + (m_copy ? m_copy->getMemSize() : 0);
+    return sizeof(*this) + m_seq.memSize() + (m_copy ? m_copy->getMemSize() : 0) +
+           (m_effectiveMask ? m_effectiveMask->getMemSize() : 0);
   }
 
 private:
@@ -41,6 +43,7 @@ private:
 
   CmdSequence m_seq;
   ImageRef m_copy;
+  std::unique_ptr<doc::Mask> m_effectiveMask;
   gfx::Point m_cropPos;
   color_t m_bgcolor;
 };

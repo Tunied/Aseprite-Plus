@@ -11,6 +11,7 @@
 
 #include "app/doc_observer.h"
 #include "app/extra_cel.h"
+#include "app/grid_lock.h"
 #include "app/file/format_options.h"
 #include "app/transformation.h"
 #include "app/tools/clone_stamp.h"
@@ -62,6 +63,7 @@ enum DuplicateType {
 class Doc : public doc::Document,
             public obs::observable<DocObserver> {
   CloneStampState m_cloneStamp;
+  GridLockState m_gridLock;
 
   enum Flags {
     kAssociatedToFile = 1, // This sprite is associated to a file in the file-system
@@ -78,6 +80,9 @@ public:
   ~Doc();
 
   CloneStampState& cloneStamp() { return m_cloneStamp; }
+
+  GridLockState& gridLock() { return m_gridLock; }
+  const GridLockState& gridLock() const { return m_gridLock; }
 
   Context* context() const { return m_ctx; }
   void setContext(Context* ctx);

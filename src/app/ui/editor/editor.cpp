@@ -1087,6 +1087,15 @@ void Editor::drawSpriteUnclippedRect(ui::Graphics* g, const gfx::Rect& _rc)
     }
   }
 
+  // An editor-only border; never included in image sampling or export.
+  if ((m_flags & kShowGrid) && m_document->gridLock().locked()) {
+    auto rect = m_document->gridLock().bounds;
+    rect.offset(mainTilePosition());
+    rect = editorToScreen(rect);
+    rect.offset(-bounds().origin());
+    g->drawRect(gfx::rgba(0, 255, 0, 255), rect);
+  }
+
   // Post-render decorator.
   if ((m_flags & kShowDecorators) && m_decorator) {
     EditorPostRenderImpl postRender(this, g);

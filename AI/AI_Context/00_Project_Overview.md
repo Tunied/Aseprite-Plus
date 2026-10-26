@@ -9,6 +9,8 @@
 - 新功能不设计动画/跨帧能力。图章不提供软边硬度或独立流量，入口与规则见 `Clone_Stamp.md`。
 - 静态界面边界见 `Static_Editing_Scope.md`。
 
+- 单格编辑锁定：顶部挂锁按钮、格外选区复制及格内写入裁剪，规则和验证入口见 `Grid_Lock.md`。
+
 ## Remote
 - `upstream`：https://github.com/aseprite/aseprite —— 同步来源，会不定期合并进来。
 - `origin`：https://github.com/Tunied/Aseprite-Plus —— 初始 fork 来源。

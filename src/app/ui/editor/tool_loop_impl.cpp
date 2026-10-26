@@ -463,6 +463,7 @@ class PaintToolLoopBase : public ToolLoopBase,
 protected:
   Context* m_context;
   Mask* m_mask;
+  std::unique_ptr<Mask> m_gridLockMask;
   gfx::Point m_maskOrigin;
   bool m_internalCancel = false;
   Tx m_tx;
@@ -531,6 +532,16 @@ public:
   void constructor_epilogue()
   {
     m_mask = m_document->mask();
+    if (!m_ink->isSelection() && m_document->gridLock().locked()) {
+      m_gridLockMask.reset(new Mask);
+      if (m_document->isMaskVisible()) {
+        m_gridLockMask->copyFrom(m_mask);
+        m_gridLockMask->intersect(m_document->gridLock().bounds);
+      }
+      else
+        m_gridLockMask->replace(m_document->gridLock().bounds);
+      m_mask = m_gridLockMask.get();
+    }
     m_maskOrigin = (!m_mask->isEmpty() ? gfx::Point(m_mask->bounds().x - m_celOrigin.x,
                                                     m_mask->bounds().y - m_celOrigin.y) :
                                          gfx::Point(0, 0));
@@ -648,7 +659,7 @@ public:
       m_useMask = false;
     }
     else {
-      m_useMask = m_document->isMaskVisible();
+      m_useMask = m_document->isMaskVisible() || m_document->gridLock().locked();
     }
 
     // Start with an empty mask if the user is selecting with "default selection mode"

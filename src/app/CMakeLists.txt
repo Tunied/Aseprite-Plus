@@ -829,6 +829,12 @@ if(OLDKING_BUILD_CLONE_TESTS AND ENABLE_SCRIPTING)
   target_link_libraries(oldking_clone_tests app-lib ${PLATFORM_LIBS})
 endif()
 
+option(OLDKING_BUILD_GRID_LOCK_TESTS "Build grid lock editing integration tests" OFF)
+if(OLDKING_BUILD_GRID_LOCK_TESTS AND ENABLE_SCRIPTING)
+  add_executable(oldking_grid_lock_tests ui/oldking/tests/grid_lock_tests.cpp)
+  target_link_libraries(oldking_grid_lock_tests app-lib ${PLATFORM_LIBS})
+endif()
+
 # Focused OldKing regression runner; no additional test dependency is needed.
 option(OLDKING_BUILD_TOOLBAR_TESTS "Build OldKing toolbar regression runner" OFF)
 if(OLDKING_BUILD_TOOLBAR_TESTS)

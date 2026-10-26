@@ -1244,10 +1244,21 @@ void PixelsMovement::drawImage(const Transformation& transformation,
     }
     m_originalImage->setMaskColor(maskColor);
 
-    drawParallelogram(transformation, dst, m_originalImage.get(), m_initialMask.get(), corners, pt);
+    ImageRef constrained;
+    Image* paintDst = dst;
+    if (renderOriginalLayer && m_document->gridLock().locked()) {
+      constrained.reset(Image::createCopy(dst));
+      paintDst = constrained.get();
+    }
+    drawParallelogram(transformation, paintDst, m_originalImage.get(), m_initialMask.get(), corners, pt);
 
     if (m_tiledModeHelper && m_tiledModeHelper->tiledEnabled()) {
-      m_tiledModeHelper->drawTiled(dst, cornerBounds);
+      m_tiledModeHelper->drawTiled(paintDst, cornerBounds);
+    }
+    if (constrained) {
+      auto allowed = m_document->gridLock().bounds;
+      allowed.offset(-bounds.origin());
+      dst->copy(constrained.get(), gfx::Clip(allowed));
     }
   }
 }
