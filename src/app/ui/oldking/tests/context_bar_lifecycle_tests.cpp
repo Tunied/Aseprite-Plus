@@ -4,10 +4,13 @@
 #endif
 #include "app/app.h"
 #include "app/cli/app_options.h"
+#include "app/commands/commands.h"
 #include "app/doc.h"
 #include "app/docs.h"
 #include "app/fonts/font_info.h"
 #include "app/pref/preferences.h"
+#include "app/tools/tool_box.h"
+#include "app/ui/button_set.h"
 #include "app/ui/color_bar.h"
 #include "app/ui/context_bar.h"
 #include "app/ui/skin/skin_theme.h"
@@ -60,21 +63,46 @@ int app_main(int, char** argv)
     app::ColorBar colors(&tooltips);
     {
       app::ContextBar bar(&tooltips, &colors);
+      manager.addChild(&bar);
+      auto* grid = bar.findChildT<app::ButtonSet>("grid_view");
+      auto* lock = bar.findChildT<app::ButtonSet>("grid_lock");
+      check(grid && lock && grid != lock, "grid view has a separate button from grid focus");
+      check(grid->isVisible() && !grid->isEnabled(), "grid button starts visible but disabled");
       auto* context = app::UIContext::instance();
       auto& docs = context->documents();
       auto* first = docs.add(16, 16, doc::ColorMode::RGB, 256);
       auto* second = docs.add(16, 16, doc::ColorMode::RGB, 256);
       context->setActiveDocument(first);
       connections(first, true);
+      auto& firstPref = app::Preferences::instance().document(first);
+      firstPref.show.grid(false);
+      grid->ItemChange(grid->getItem(0));
+      check(firstPref.show.grid() && grid->getItem(0)->isSelected(), "grid button shows grid");
+      check(!first->gridLock().enabled(), "showing grid does not request a focused cell");
+      grid->ItemChange(grid->getItem(0));
+      check(!firstPref.show.grid() && !grid->getItem(0)->isSelected(), "grid button hides grid");
+      context->executeCommand(app::Commands::instance()->byId(app::CommandId::ShowGrid()));
+      check(grid->getItem(0)->isSelected(), "menu command updates grid button");
+      for (const char* id : {"pencil", "rectangular_marquee", "clone_stamp", "paint_bucket", "eyedropper", "hand"}) {
+        bar.updateForTool(app.toolBox()->getToolById(id));
+        bar.setBounds(gfx::Rect(0, 0, 1000, bar.sizeHint().h));
+        check(grid->isVisible() && grid->bounds().w > 0 && grid->getItem(0)->iconSurface(),
+              "grid view stays visible across tool changes");
+        check(grid->bounds().x2() <= lock->bounds().x, "grid view precedes focus button");
+      }
+      app::Preferences::instance().document(second).show.grid(false);
       context->setActiveDocument(second);
+      check(!grid->getItem(0)->isSelected(), "document switch updates grid button");
       connections(first, false);
       connections(second, true);
       // Returning to an empty site must detach before closing its document.
       context->setActiveDocument(nullptr);
+      check(!grid->isEnabled() && !grid->getItem(0)->isSelected(), "empty site disables grid button");
       connections(second, false);
       second->close();
       delete second;
       context->setActiveDocument(first);
+      check(grid->isEnabled() && grid->getItem(0)->isSelected(), "return restores document grid state");
       connections(first, true);
       // Normal exit closes documents before destroying ContextBar.
       app.run(false);

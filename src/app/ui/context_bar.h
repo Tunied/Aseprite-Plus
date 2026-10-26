@@ -172,6 +172,7 @@ private:
   class TransformationFields;
   class DynamicsField;
   class FreehandAlgorithmField;
+  class GridViewField;
   class GridLockField;
   class BrushPatternField;
   class CornerRadiusField;
@@ -204,6 +205,7 @@ private:
   ui::Box* m_freehandBox;
   DynamicsField* m_dynamics;
   FreehandAlgorithmField* m_freehandAlgo;
+  GridViewField* m_gridView;
   GridLockField* m_gridLock;
   ui::Label* m_gridLockHelp;
   obs::scoped_connection m_gridVisibleConn;

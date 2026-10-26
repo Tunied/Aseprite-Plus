@@ -1470,6 +1470,24 @@ protected:
   }
 };
 
+class ContextBar::GridViewField : public ButtonSet {
+public:
+  GridViewField() : ButtonSet(1)
+  {
+    auto* theme = SkinTheme::get(this);
+    addItem(theme->parts.iconGrid(), theme->styles.contextBarButton());
+    setId("grid_view");
+    setMultiMode(MultiMode::Set);
+    ItemChange.connect([this](Item*) {
+      auto* context = UIContext::instance();
+      if (context->activeDocument())
+        context->executeCommandFromMenuOrShortcut(
+          Commands::instance()->byId(CommandId::ShowGrid()));
+      getItem(0)->releaseFocus();
+    });
+  }
+};
+
 class ContextBar::GridLockField : public ButtonSet {
 public:
   GridLockField() : ButtonSet(1)
@@ -2148,6 +2166,10 @@ ContextBar::ContextBar(TooltipManager* tooltipManager, ColorBar* colorBar)
   m_freehandBox->addChild(m_dynamics = new DynamicsField(this));
   m_freehandBox->addChild(m_freehandAlgo = new FreehandAlgorithmField());
 
+  // Document-level controls stay outside the tool-specific freehand box.
+  addChild(m_gridView = new GridViewField);
+  tooltipManager->addTooltipFor(m_gridView->getItem(0), "显示/隐藏网格 (Toggle Grid View)");
+  m_gridView->setEnabled(false);
   addChild(m_gridLock = new GridLockField);
   addChild(m_gridLockHelp = new Label("专注格子：选择一个要编辑的格子"));
   m_gridLockHelp->setVisible(false);
@@ -2277,6 +2299,9 @@ void ContextBar::onDocChange(Doc* doc)
 void ContextBar::updateGridLock()
 {
   auto* document = UIContext::instance()->activeDocument();
+  m_gridView->setEnabled(document != nullptr);
+  m_gridView->getItem(0)->setSelected(
+    document && Preferences::instance().document(document).show.grid());
   m_gridLock->setEnabled(document != nullptr);
   m_gridLock->getItem(0)->setSelected(
     document && Preferences::instance().document(document).show.grid());
