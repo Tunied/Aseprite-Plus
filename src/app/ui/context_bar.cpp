@@ -1492,7 +1492,7 @@ public:
       else {
         lock.request();
         pref.show.grid(true);
-        StatusBar::instance()->showTip(3000, "选择一个要编辑的网格");
+        StatusBar::instance()->showTip(3000, "专注格子：选择一个要编辑的格子");
       }
       doc->notifyGeneralUpdate();
       getItem(0)->releaseFocus();
@@ -2149,9 +2149,9 @@ ContextBar::ContextBar(TooltipManager* tooltipManager, ColorBar* colorBar)
   m_freehandBox->addChild(m_freehandAlgo = new FreehandAlgorithmField());
 
   addChild(m_gridLock = new GridLockField);
-  addChild(m_gridLockHelp = new Label("选择一个要编辑的网格"));
+  addChild(m_gridLockHelp = new Label("专注格子：选择一个要编辑的格子"));
   m_gridLockHelp->setVisible(false);
-  tooltipManager->addTooltipFor(m_gridLock->getItem(0), "Lock Gird");
+  tooltipManager->addTooltipFor(m_gridLock->getItem(0), "专注格子：仅在选中的格子内编辑");
   m_gridLock->setEnabled(false);
 
   addChild(m_symmetry = new SymmetryField());

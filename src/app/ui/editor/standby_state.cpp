@@ -136,7 +136,7 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
                                     editor->sprite()->bounds()))
       document->notifyGeneralUpdate();
     else
-      StatusBar::instance()->showTip(2000, "选择一个要编辑的网格");
+      StatusBar::instance()->showTip(2000, "专注格子：选择一个要编辑的格子");
     return true;
   }
 
@@ -168,12 +168,10 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
     // Ink starts the stroke after snapping/controller processing.
   }
 
-  if (document->gridLock().locked() && layer &&
-      (layer->isReference() ||
-       (layer->isTilemap() && editor->getCurrentEditorTool()->getId() != "clone_stamp")) &&
+  if (document->gridLock().locked() && layer && layer->isReference() &&
       clickedInk && !clickedInk->isSelection() && !clickedInk->isEyedropper() &&
       !clickedInk->isScrollMovement() && !clickedInk->isZoom()) {
-    StatusBar::instance()->showTip(2500, "Lock Gird: select an ordinary image layer");
+    StatusBar::instance()->showTip(2500, "专注格子：请选择可编辑的图像或 Tilemap 图层");
     return true;
   }
 
@@ -206,7 +204,7 @@ bool StandbyState::onMouseDown(Editor* editor, MouseMessage* msg)
   // Move cel X,Y coordinates
   if (clickedInk->isCelMovement()) {
     if (document->gridLock().locked()) {
-      StatusBar::instance()->showTip(2500, "Lock Gird: use M to select and move pixels");
+      StatusBar::instance()->showTip(2500, "专注格子：请用 M 选择并移动像素");
       return true;
     }
     // Handle "Auto Select Layer"

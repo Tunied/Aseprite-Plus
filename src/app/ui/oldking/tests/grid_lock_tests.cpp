@@ -23,9 +23,13 @@
 #include "doc/image.h"
 #include "doc/image_spec.h"
 #include "doc/layer.h"
+#include "doc/layer_tilemap.h"
 #include "doc/mask.h"
+#include "doc/primitives.h"
 #include "doc/sprite.h"
+#include "doc/tilesets.h"
 #include "os/system.h"
+#include "render/rasterize.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -51,18 +55,29 @@ struct Fixture {
   LayerImage* layer;
   Site site;
   Fixture(Context* ctx, PixelFormat format = IMAGE_RGB, bool empty = false,
-          gfx::Point origin = gfx::Point(0,0)) : context(ctx)
+          gfx::Point origin = gfx::Point(0,0), bool tilemap = false) : context(ctx)
   {
     auto* sprite = new Sprite(ImageSpec(format == IMAGE_RGB ? ColorMode::RGB :
       (format == IMAGE_GRAYSCALE ? ColorMode::GRAYSCALE : ColorMode::INDEXED), 12, 8));
     document = new Doc(sprite);
     ctx->documents().add(document);
     ctx->setActiveDocument(document);
-    layer = new LayerImage(sprite);
+    if (tilemap) {
+      auto* tileset = new Tileset(sprite, Grid(gfx::Size(2,2)), 2);
+      ImageRef tileImage(Image::create(format,2,2));
+      tileImage->clear(format == IMAGE_RGB ? rgba(0,255,0,255) :
+                       format == IMAGE_GRAYSCALE ? graya(160,255) : 2);
+      tileset->set(1,tileImage);
+      layer = new LayerTilemap(sprite,sprite->tilesets()->add(tileset));
+    }
+    else
+      layer = new LayerImage(sprite);
     sprite->root()->addLayer(layer);
     if (!empty) {
-      ImageRef image(Image::create(format, 12, 8));
-      image->clear(0);
+      ImageRef image(Image::create(tilemap ? IMAGE_TILEMAP : format,
+                                   tilemap ? 4 : 12, tilemap ? 2 : 8));
+      image->clear(tilemap ? tile(1,0) : 0);
+      if (tilemap) image->putPixel(1,0,tile(1,tile_f_xflip));
       auto* cel = new Cel(0,image);
       cel->setPosition(origin);
       layer->addCel(cel);
@@ -87,6 +102,8 @@ struct Fixture {
     params.fg=Color::fromRgb(255,0,0); params.bg=Color::fromRgb(0,0,0);
     std::unique_ptr<ToolLoop> loop(create_tool_loop_for_script(context,site,params));
     check(bool(loop), "create paint loop");
+    if (layer->isTilemap() && document->gridLock().locked())
+      check(!loop->isTilemapMode(), "focused tilemap painting uses pixel coordinates");
     ToolLoopManager manager(loop.get());
     Pointer first(a,{},Pointer::Left,Pointer::Type::Mouse,1.0f);
     Pointer last(b,{},Pointer::Left,Pointer::Type::Mouse,1.0f);
@@ -96,6 +113,81 @@ struct Fixture {
     manager.end();
   }
 };
+ImageRef rendered(Fixture& f)
+{
+  return ImageRef(render::rasterize_with_sprite_bounds(f.layer->cel(0)));
+}
+void tilemapPainting(Context* context)
+{
+  for (auto format : {IMAGE_RGB,IMAGE_GRAYSCALE,IMAGE_INDEXED}) {
+    for (auto tilemapMode : {TilemapMode::Pixels,TilemapMode::Tiles}) {
+      for (auto mode : {TilesetMode::Manual,TilesetMode::Auto,TilesetMode::Stack}) {
+        for (const char* tool : {"pencil","eraser","paint_bucket","filled_rectangle"}) {
+          Fixture f(context,format,false,{1,1},true);
+          f.site.tilemapMode(tilemapMode); f.site.tilesetMode(mode);
+          auto* target = static_cast<LayerTilemap*>(f.layer);
+          // Focus only part of a tile shared by every other cell, including a flipped copy.
+          f.document->gridLock().request();
+          check(f.document->gridLock().select({5,1},{5,1,1,2},f.document->sprite()->bounds()),
+                "focus partial tile with offset cel");
+          const auto before = rendered(f);
+          const auto tileCount = target->tileset()->size();
+          f.select({5,1,2,1});
+          f.stroke(tool,{5,1},{6,2},5);
+          const auto after = rendered(f);
+          check(after->getPixel(5,1) != before->getPixel(5,1) &&
+                count_diff_between_images(before.get(),after.get()) == 1,
+                "focused pencil/eraser/fill/shape changes only focus and selection intersection");
+          check(f.site.tilemapMode() == tilemapMode && f.site.tilesetMode() == mode,
+                "focused stroke preserves caller tilemap and tileset modes");
+          check(f.document->mask()->bounds() == gfx::Rect(5,1,2,1),
+                "focused stroke preserves user selection");
+          f.document->undoHistory()->undo();
+          check(count_diff_between_images(rendered(f).get(),before.get()) == 0 &&
+                target->tileset()->size() == tileCount,
+                "focused tilemap undo restores pixels and tileset");
+          f.document->gridLock().reset();
+          f.document->undoHistory()->redo();
+          check(count_diff_between_images(rendered(f).get(),after.get()) == 0,
+                "focused tilemap redo survives clearing focus");
+          f.document->gridLock().request();
+          f.document->gridLock().select({5,1},{5,1,1,2},f.document->sprite()->bounds());
+          f.document->setMaskVisible(false);
+          f.stroke(tool,{5,2},{5,2},5,true);
+          check(count_diff_between_images(rendered(f).get(),after.get()) == 0,
+                "cancelling focused tilemap stroke preserves pixels");
+          f.stroke(tool,{10,6},{11,7});
+          check(count_diff_between_images(rendered(f).get(),after.get()) == 0,
+                "tilemap stroke outside focused cell does nothing");
+          f.select({0,0,1,1});
+          f.stroke(tool,{5,2},{5,2},5);
+          check(count_diff_between_images(rendered(f).get(),after.get()) == 0,
+                "disjoint selection blocks focused tilemap stroke");
+          // Use a fresh document: native no-op tilemap transactions can still
+          // carry undo metadata, so do not assume one undo skips all no-ops.
+          Fixture full(context,format,false,{1,1},true);
+          full.site.tilemapMode(tilemapMode); full.site.tilesetMode(mode);
+          full.document->gridLock().request();
+          full.document->gridLock().select({5,1},{5,1,1,2},full.document->sprite()->bounds());
+          full.stroke(tool,{5,1},{6,2},5);
+          const auto fullCell = rendered(full);
+          check(count_diff_between_images(before.get(),fullCell.get()) == 2 &&
+                fullCell->getPixel(5,1) != before->getPixel(5,1) &&
+                fullCell->getPixel(5,2) != before->getPixel(5,2),
+                "without selection focused tilemap stroke edits full cell and preserves shared copies");
+        }
+      }
+    }
+  }
+  // Focus also allows Manual to paint an empty tilemap without changing its preference.
+  Fixture empty(context,IMAGE_RGB,true,{},true);
+  empty.site.tilemapMode(TilemapMode::Tiles); empty.site.tilesetMode(TilesetMode::Manual);
+  empty.stroke("pencil",{5,2},{5,2},5);
+  check(empty.layer->cel(0) && rendered(empty)->getPixel(5,2) == rgba(255,0,0,255),
+        "focused pencil creates pixels in empty Manual tilemap");
+  empty.document->undoHistory()->undo();
+  check(!empty.layer->cel(0), "undo removes newly painted tilemap cel");
+}
 void checkOutside(Fixture& f, const Image* before)
 {
   for (int y=0; y<8; ++y)
@@ -253,6 +345,7 @@ int app_main(int argc, char** argv)
       checkOutside(f,before.get());
       check(pixel(f.layer,5,2)==rgba(255,0,0,255),"expanded canvas commit clips unmasked writes");
     }
+    tilemapPainting(ctx);
     movement(ctx,false);
     movement(ctx,true);
     std::cout << "Grid lock integration: " << checks << " checks passed\n";

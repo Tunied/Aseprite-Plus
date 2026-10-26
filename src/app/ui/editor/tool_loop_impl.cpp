@@ -883,16 +883,30 @@ public:
 //////////////////////////////////////////////////////////////////////
 // For user UI painting
 
-// Clone copies rendered pixels, even when the color bar selects whole tiles.
-// Keep native tileset editing except when Manual would change shared tiles
-// outside the locked grid. In that case isolate the changed tile via Auto,
-// without changing the user's color-bar preferences.
-static void configure_clone_stamp_site(Site& site, const ToolLoopParams& params)
+static bool is_focused_tilemap_painting(const Site& site, const tools::Ink* ink)
 {
-  if (params.tool && params.tool->getId() == "clone_stamp") {
+  return site.document() && site.document()->gridLock().locked() &&
+         site.layer() && site.layer()->isTilemap() && ink &&
+         (ink->isPaint() || ink->isEffect() || ink->isEraser());
+}
+
+TilemapMode effective_tool_tilemap_mode(const Site& site,
+                                       const tools::Tool* tool,
+                                       const tools::Ink* ink)
+{
+  return ((tool && tool->getId() == "clone_stamp") ||
+          is_focused_tilemap_painting(site, ink)) ? TilemapMode::Pixels : site.tilemapMode();
+}
+
+// Focused drawing uses pixel masks, even when the color bar selects tiles.
+// Isolate Manual's shared tiles so edits cannot propagate outside the cell.
+// Only this stroke's Site changes; the color-bar preferences stay intact.
+static void configure_pixel_editing_site(Site& site, const ToolLoopParams& params)
+{
+  const bool focused = is_focused_tilemap_painting(site, params.ink);
+  if (focused || (params.tool && params.tool->getId() == "clone_stamp")) {
     site.tilemapMode(TilemapMode::Pixels);
-    if (site.layer() && site.layer()->isTilemap() && site.document()->gridLock().locked() &&
-        site.tilesetMode() == TilesetMode::Manual)
+    if (focused && site.tilesetMode() == TilesetMode::Manual)
       site.tilesetMode(TilesetMode::Auto);
   }
 }
@@ -922,7 +936,7 @@ tools::ToolLoop* create_tool_loop(Editor* editor,
   ToolLoopParams params;
   params.tool = editor->getCurrentEditorTool();
   params.ink = editor->getCurrentEditorInk();
-  configure_clone_stamp_site(site, params);
+  configure_pixel_editing_site(site, params);
   doc::Grid grid = site.grid();
 
   if (site.tilemapMode() == TilemapMode::Tiles) {
@@ -1058,7 +1072,7 @@ tools::ToolLoop* create_tool_loop_for_script(Context* context,
       Preferences::instance().resetToolPreferences(params.tool);
 
     Site site2(site);
-    configure_clone_stamp_site(site2, params);
+    configure_pixel_editing_site(site2, params);
     return new ToolLoopImpl(nullptr, site2, site2.grid(), context, params, false);
   }
   catch (const std::exception& ex) {
@@ -1150,7 +1164,7 @@ tools::ToolLoop* create_tool_loop_preview(Editor* editor,
   ToolLoopParams params;
   params.tool = editor->getCurrentEditorTool();
   params.ink = editor->getCurrentEditorInk();
-  configure_clone_stamp_site(site, params);
+  configure_pixel_editing_site(site, params);
 
   if (site.tilemapMode() == TilemapMode::Tiles && image->pixelFormat() == IMAGE_TILEMAP) {
     adjust_ink_for_tilemaps(site, params);

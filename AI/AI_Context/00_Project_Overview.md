@@ -10,7 +10,7 @@
 - 静态界面边界见 `Static_Editing_Scope.md`。
 - 界面采用 Fusion Pixel，General 支持独立 Font Size 百分比；字体资源、行度量、缩放及验证入口见 `UI_Typography.md`。
 - 编辑器导航：边缘自动滚动默认原速 25%，Shift+方向键默认移动 4 图像像素，两者可在 Preferences 微调；入口与规则见 `Editor_Navigation.md`。
-- 单格编辑锁定：顶部挂锁按钮、格外选区复制及格内写入裁剪，规则和验证入口见 `Grid_Lock.md`。
+- 专注格子：顶部挂锁按钮，仅在选中格内编辑，支持普通层及 Tilemap 画笔/橡皮，规则和验证入口见 `Grid_Lock.md`。
 
 ## Remote
 - `upstream`：https://github.com/aseprite/aseprite —— 同步来源，会不定期合并进来。

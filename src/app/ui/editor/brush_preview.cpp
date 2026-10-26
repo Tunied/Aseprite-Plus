@@ -191,7 +191,8 @@ void BrushPreview::show(const gfx::Point& screenPos)
 
   // Get current tilemap mode
   const bool cloneSampling = isCloneStampSampling();
-  const TilemapMode tilemapMode = isClone ? TilemapMode::Pixels : site.tilemapMode();
+  const TilemapMode tilemapMode =
+    effective_tool_tilemap_mode(site, tool, m_editor->getCurrentEditorInk());
 
   gfx::Rect origBrushBounds;
   if (isFloodfill && brush->type() != BrushType::kImageBrushType)
@@ -659,7 +660,8 @@ void BrushPreview::createBoundaries(const Site& site, const gfx::Point& spritePo
 {
   BrushRef brush = getCurrentBrush();
   Layer* currentLayer = site.layer();
-  TilemapMode tilemapMode = site.tilemapMode();
+  TilemapMode tilemapMode = effective_tool_tilemap_mode(
+    site, m_editor->getCurrentEditorTool(), m_editor->getCurrentEditorInk());
 
   // Re-use current boundaries if they are still valid.
   if ((tilemapMode == TilemapMode::Pixels ||

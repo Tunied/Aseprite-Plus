@@ -10,6 +10,7 @@
 #pragma once
 
 #include "app/color.h"
+#include "app/tilemap_mode.h"
 #include "app/tools/freehand_algorithm.h"
 #include "app/tools/ink_type.h"
 #include "app/tools/pointer.h"
@@ -53,6 +54,11 @@ struct ToolLoopParams {
 
 //////////////////////////////////////////////////////////////////////
 // For UI
+
+// Painting and brush previews must agree when a focused tilemap uses pixels.
+TilemapMode effective_tool_tilemap_mode(const Site& site,
+                                       const tools::Tool* tool,
+                                       const tools::Ink* ink);
 
 tools::ToolLoop* create_tool_loop(Editor* editor,
                                   Context* context,
