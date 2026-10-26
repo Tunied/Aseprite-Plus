@@ -899,15 +899,20 @@ TilemapMode effective_tool_tilemap_mode(const Site& site,
 }
 
 // Focused drawing uses pixel masks, even when the color bar selects tiles.
-// Isolate Manual's shared tiles so edits cannot propagate outside the cell.
+// Isolate Manual's shared tiles, except externally linked dual-grid atlases:
+// their layer marker requires stable Tile identities and shared Index edits.
 // Only this stroke's Site changes; the color-bar preferences stay intact.
 static void configure_pixel_editing_site(Site& site, const ToolLoopParams& params)
 {
   const bool focused = is_focused_tilemap_painting(site, params.ink);
   if (focused || (params.tool && params.tool->getId() == "clone_stamp")) {
     site.tilemapMode(TilemapMode::Pixels);
-    if (focused && site.tilesetMode() == TilesetMode::Manual)
-      site.tilesetMode(TilesetMode::Auto);
+    if (focused) {
+      if (site.layer()->userData().text() == "dual-grid-optimize-v1")
+        site.tilesetMode(TilesetMode::Manual);
+      else if (site.tilesetMode() == TilesetMode::Manual)
+        site.tilesetMode(TilesetMode::Auto);
+    }
   }
 }
 

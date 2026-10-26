@@ -188,6 +188,50 @@ void tilemapPainting(Context* context)
   empty.document->undoHistory()->undo();
   check(!empty.layer->cel(0), "undo removes newly painted tilemap cel");
 }
+void linkedTilemapPainting(Context* context)
+{
+  for (auto input : {TilemapMode::Pixels, TilemapMode::Tiles}) {
+    for (auto mode : {TilesetMode::Manual, TilesetMode::Auto, TilesetMode::Stack}) {
+      for (const char* tool : {"pencil", "eraser", "paint_bucket", "filled_rectangle"}) {
+        Fixture f(context,IMAGE_RGB,false,{1,1},true);
+        f.layer->userData().setText("dual-grid-optimize-v1");
+        auto* tileset = static_cast<LayerTilemap*>(f.layer)->tileset();
+        tileset->getTileData(1).setText("dual-grid-index:4");
+        f.site.tilemapMode(input); f.site.tilesetMode(mode);
+        f.document->gridLock().request();
+        f.document->gridLock().select({5,1},{5,1,1,2},f.document->sprite()->bounds());
+        f.select({5,1,2,1});
+        const auto before = rendered(f);
+        ImageRef map(Image::createCopy(f.layer->cel(0)->image()));
+        f.stroke(tool,{5,1},{6,2},5);
+        const auto after = rendered(f);
+        check(after->getPixel(5,1) != before->getPixel(5,1) &&
+              after->getPixel(1,1) == after->getPixel(5,1),
+              "linked Index edits propagate to shared references");
+        check(after->getPixel(5,2) == before->getPixel(5,2),
+              "linked painting still clips the source to focus and selection");
+        check(tileset->size() == 2 && tileset->getTileData(1).text() == "dual-grid-index:4" &&
+              count_diff_between_images(map.get(),f.layer->cel(0)->image()) == 0,
+              "linked focus preserves Tile IDs, metadata and tilemap references");
+        check(f.site.tilemapMode() == input && f.site.tilesetMode() == mode,
+              "linked focus preserves caller mode preferences");
+        f.document->undoHistory()->undo();
+        check(count_diff_between_images(before.get(),rendered(f).get()) == 0,
+              "linked focus undo restores shared pixels");
+        f.document->gridLock().reset();
+        f.document->undoHistory()->redo();
+        check(count_diff_between_images(after.get(),rendered(f).get()) == 0,
+              "linked focus redo retains shared result after focus is cleared");
+        f.document->gridLock().request();
+        f.document->gridLock().select({5,1},{5,1,1,2},f.document->sprite()->bounds());
+        f.document->setMaskVisible(false);
+        f.stroke(tool,{5,2},{5,2},5,true);
+        check(count_diff_between_images(after.get(),rendered(f).get()) == 0,
+              "linked focus cancellation preserves all shared pixels");
+      }
+    }
+  }
+}
 void checkOutside(Fixture& f, const Image* before)
 {
   for (int y=0; y<8; ++y)
@@ -346,6 +390,7 @@ int app_main(int argc, char** argv)
       check(pixel(f.layer,5,2)==rgba(255,0,0,255),"expanded canvas commit clips unmasked writes");
     }
     tilemapPainting(ctx);
+    linkedTilemapPainting(ctx);
     movement(ctx,false);
     movement(ctx,true);
     std::cout << "Grid lock integration: " << checks << " checks passed\n";

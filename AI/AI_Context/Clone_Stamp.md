@@ -19,6 +19,7 @@
 - 图章始终使用像素模式与像素笔刷轮廓，即使颜色栏当前为整 Tile 模式；不更改用户的颜色栏模式，不把图章替换为整 Tile 画笔。
 - 写回沿用 `ExpandCelCanvas` 原生 Tilemap 像素编辑与事务，保留图层类型，仍以 Tile ID 引用 Tileset。遵循当前 Tileset 编辑模式：Manual 修改共享 Tile，其他引用同步变化；Auto/Stack 按原生规则生成或匹配 Tile。Manual 不向空 Tile 创建新 Tile。
 - 原生目标选区、不透明度、撤销/重做与取消有效。开启专注格子后可从格外取样，目标只写入专注格与用户选区的交集；Tilemap 目标在 Manual 下仅本次笔画改用 Auto，避免共享 Tile 修改传播到格外，不改颜色栏设置。详见 `Grid_Lock.md`。
+- 带 `dual-grid-optimize-v1` 关联标记的 Tile 优化层遵守外部 Index 共享约定：专注笔画固定使用 Manual，同 Index 引用同步更新，详见 `Grid_Lock.md`。
 
 ## 实现入口
 - `src/app/tools/clone_stamp.h/.cpp`：瞬时文档状态、取样快照、图章 Ink；`Doc::cloneStamp()` 持有状态，文档关闭时释放，不写入工程或撤销历史。
